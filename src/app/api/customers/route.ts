@@ -43,6 +43,8 @@ export async function GET(_request: Request) {
               endTime: true,
               status: true,
               finalPrice: true,
+              note: true,
+              paymentMethod: true,
               service: {
                 select: {
                   id: true,

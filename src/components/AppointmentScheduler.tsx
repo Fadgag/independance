@@ -7,7 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import frLocale from '@fullcalendar/core/locales/fr';
-import type { DateSelectArg, EventClickArg, EventContentArg, EventMountArg } from '@fullcalendar/core';
+import type { DateSelectArg, EventClickArg, EventContentArg, EventMountArg, EventDropArg } from '@fullcalendar/core';
 import AppointmentModal from './calendar/AppointmentModal';
 
 // Imports Tippy pour les bulles d'infos
@@ -101,6 +101,7 @@ export default function AppointmentScheduler() {
                         locale="fr"
                         locales={[frLocale]}
                         selectable={true}
+                        editable={true}
                         nowIndicator={true}
                         slotMinTime="08:00:00"
                         slotMaxTime="20:00:00"
@@ -168,6 +169,61 @@ export default function AppointmentScheduler() {
                             setEditingEvent(eventData);
                             setSelectedRange(null);
                             setIsModalOpen(true);
+                        }}
+
+                        // --- 4. DRAG & DROP ---
+                        eventDrop={async (info: EventDropArg) => {
+                            const { event, revert } = info
+                            try {
+                                const res = await fetch('/api/appointments', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                        id: event.id,
+                                        start: event.start?.toISOString(),
+                                        end: event.end?.toISOString(),
+                                        duration: event.end && event.start
+                                            ? Math.round((event.end.getTime() - event.start.getTime()) / 60000)
+                                            : undefined,
+                                    }),
+                                })
+                                if (!res.ok) {
+                                    revert()
+                                    if (res.status === 409) alert('Conflit horaire : ce créneau est déjà occupé.')
+                                    else alert('Erreur lors du déplacement du rendez-vous.')
+                                }
+                            } catch {
+                                revert()
+                                alert('Erreur réseau lors du déplacement.')
+                            }
+                        }}
+
+                        // --- 5. REDIMENSIONNEMENT ---
+                        eventResize={async (info: { event: EventDropArg['event']; revert: () => void }) => {
+                            const { event, revert } = info
+                            try {
+                                const res = await fetch('/api/appointments', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({
+                                        id: event.id,
+                                        start: event.start?.toISOString(),
+                                        end: event.end?.toISOString(),
+                                        duration: event.end && event.start
+                                            ? Math.round((event.end.getTime() - event.start.getTime()) / 60000)
+                                            : undefined,
+                                    }),
+                                })
+                                if (!res.ok) {
+                                    revert()
+                                    alert('Erreur lors du redimensionnement du rendez-vous.')
+                                }
+                            } catch {
+                                revert()
+                                alert('Erreur réseau lors du redimensionnement.')
+                            }
                         }}
                     />
                 ) : (

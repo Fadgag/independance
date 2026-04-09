@@ -112,3 +112,79 @@ export async function POST(request: Request) {
         return apiErrorResponse(err)
     }
 }
+
+export async function PUT(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.organizationId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const body = await request.json()
+        const { id, start, end, duration, serviceId, customerId, note, force } = body
+
+        if (!id) return NextResponse.json({ error: 'Missing appointment id' }, { status: 400 })
+
+        // Vérification IDOR : l'appointment doit appartenir à l'organisation de l'utilisateur
+        const existing = await prisma.appointment.findFirst({
+            where: { id, organizationId: session.user.organizationId }
+        })
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+        const newStart = new Date(start)
+        const newEnd = new Date(end)
+
+        // Anti-overlap (sauf si force=true)
+        if (!force) {
+            const conflict = await prisma.appointment.findFirst({
+                where: {
+                    id: { not: id },
+                    staffId: existing.staffId,
+                    organizationId: session.user.organizationId,
+                    AND: [
+                        { startTime: { lt: newEnd } },
+                        { endTime: { gt: newStart } },
+                    ],
+                }
+            })
+            if (conflict) return NextResponse.json({ error: 'Conflit horaire détecté' }, { status: 409 })
+        }
+
+        const updated = await prisma.appointment.update({
+            where: { id },
+            data: {
+                startTime: newStart,
+                endTime: newEnd,
+                ...(duration !== undefined && { duration: Number(duration) }),
+                ...(serviceId && { serviceId }),
+                ...(customerId && { customerId }),
+                ...(note !== undefined && { note: note || null }),
+            }
+        })
+
+        return NextResponse.json(updated)
+    } catch (err) {
+        return apiErrorResponse(err)
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const session = await auth();
+        if (!session?.user?.organizationId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const url = new URL(request.url)
+        const id = url.searchParams.get('id')
+        if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+        // Vérification IDOR
+        const existing = await prisma.appointment.findFirst({
+            where: { id, organizationId: session.user.organizationId }
+        })
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+        await prisma.appointment.delete({ where: { id } })
+
+        return NextResponse.json({ ok: true })
+    } catch (err) {
+        return apiErrorResponse(err)
+    }
+}

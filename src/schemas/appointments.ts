@@ -25,6 +25,13 @@ export const UpdateAppointmentSchema = z.object({
   customerPackageId: z.string().nullable().optional()
 })
 
+export const UpdatePaymentDetailsSchema = z.object({
+  paymentMethod: z.enum(['CB', 'CASH', 'CHECK'], { required_error: 'Mode de paiement requis' }),
+  note: z.string().max(1000).optional().nullable(),
+})
+
+export type UpdatePaymentDetailsInput = z.infer<typeof UpdatePaymentDetailsSchema>
+
 export type CreateAppointmentInput = z.infer<typeof CreateAppointmentSchema>
 export type UpdateAppointmentInput = z.infer<typeof UpdateAppointmentSchema>
 
