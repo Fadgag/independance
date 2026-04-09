@@ -120,25 +120,30 @@ export default function ClientDetail() {
                       >
                         <div className="flex items-center gap-4">
                           <div className="bg-gray-50 p-3 rounded-xl group-hover:bg-white transition-colors">
-                            <p className="text-[10px] uppercase font-black text-studio-primary text-center">{formattedDate}</p>
+                            <p className="text-[10px] uppercase font-black text-studio-primary text-center">
+                              {apt.startTime ? new Date(apt.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''}
+                            </p>
                           </div>
                           <div>
                             <p className="font-bold text-studio-text text-sm">{apt.service?.name}</p>
-                            <p className="text-[11px] text-studio-muted italic">{formattedTime}</p>
+                            <p className="text-[11px] text-studio-muted italic">
+                              {apt.startTime ? new Date(apt.startTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <p className="font-bold text-studio-text text-sm">{displayPrice != null ? `${displayPrice} €` : '—'}</p>
+                            <p className="font-bold text-studio-text text-sm">
+                              {apt.finalPrice || apt.service?.price} €
+                            </p>
                             <span className={`text-[9px] uppercase font-black ${apt.status === 'PAID' ? 'text-green-500' : 'text-orange-400'}`}>
                         {apt.status === 'PAID' ? 'Payé' : 'À encaisser'}
                       </span>
                           </div>
                         </div>
                       </div>
-                      )
-                      })
+                  ))
               ) : (
                   <div className="text-center py-12 text-studio-muted italic border-2 border-dashed border-gray-50 rounded-3xl">
                     Aucune prestation enregistrée pour le moment.

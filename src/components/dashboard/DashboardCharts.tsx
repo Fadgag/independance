@@ -80,8 +80,7 @@ export default function DashboardCharts({ data }: { data: ChartData[] }) {
             boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
     }}
     itemStyle={{ color: '#6366f1', fontWeight: 'bold' }}
-    // RAISON: Recharts Formatter type est incompatible avec les surcharges TS strictes — cast `any` local nécessaire
-    formatter={(value: any) => [`${Number(value ?? 0)} €`, "Revenu"]}
+    formatter={(value: number | string | undefined) => [`${Number(value ?? 0)} €`, "Revenu"]}
     labelStyle={{ color: '#6b7280', marginBottom: '4px' }}
     />
 

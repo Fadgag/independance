@@ -188,10 +188,8 @@ export async function getDashboardForOrg(orgId: string, periodOrRange: PeriodPar
   return {
     summary: {
       totalRevenue: totalProjected.toNumber(),      // legacy: compatibilité descendante
-      totalRealized: totalRealized.toNumber(),      // CA encaissé
-      totalProjected: totalProjected.toNumber(),    // CA Prévisionnel
-      realizedRevenue: totalRealized.toNumber(),    // alias legacy
-      projectedRevenue: totalProjected.toNumber(),  // alias legacy
+      realizedRevenue: totalRealized.toNumber(),    // CA encaissé
+      projectedRevenue: totalProjected.toNumber(),  // CA Prévisionnel
       appointmentCount,
       newCustomerCount,
       staffCount

@@ -71,9 +71,6 @@ export interface Extra {
 // Summary shape used for lists and lightweight UI components
 export interface AppointmentSummary {
   id: string
-  // Some UI components expect a `startTime` field (checkout shape). Make it optional
-  // to simplify handling when components receive either CheckoutAppointment or AppointmentSummary.
-  startTime?: string | Date
   start: string
   end?: string
   status?: string

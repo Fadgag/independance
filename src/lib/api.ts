@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
-import { logger } from '@/lib/logger'
 
 // Central API error response helper
 export function apiErrorResponse(err: unknown) {
-  // Log full error server-side for debugging (via structured logger)
-  logger.error('API error:', err)
+  // Log full error server-side for debugging
+  console.error('API error:', err)
 
   const message = err instanceof Error ? err.message : String(err)
 

@@ -83,41 +83,33 @@ export default function CheckoutModal({ appointment, onClose, onRefresh }: Check
         if (!appointment) return
 
         // Narrowing: appointment may be CheckoutAppointment or AppointmentSummary
-        // RAISON: extendedProps est typé Record<string,unknown> dans AppointmentSummary; cast local nécessaire pour accéder aux sous-champs
         let rawExtras: string | Extra[] | undefined
         if ('extras' in appointment) {
-          // RAISON: extendedProps.extras est unknown — cast local après narrowing 'extras' in appointment
-          rawExtras = appointment.extras ?? (appointment.extendedProps?.extras as string | Extra[] | undefined)
+          rawExtras = appointment.extras ?? (appointment.extendedProps?.extras as any)
         } else {
-          // RAISON: extendedProps est Record<string,unknown> dans AppointmentSummary
-          rawExtras = appointment.extendedProps ? (appointment.extendedProps['extras'] as string | Extra[] | undefined) : undefined
+          rawExtras = appointment.extendedProps ? (appointment.extendedProps['extras'] as any) : undefined
         }
         setExtras(typeof rawExtras === 'string' ? JSON.parse(rawExtras || "[]") : (rawExtras || []))
 
-        const noteVal = ('note' in appointment ? appointment.note : undefined) ?? ('Note' in appointment ? (appointment as CheckoutAppointment).Note : undefined) ?? appointment.extendedProps?.note ?? ''
-        setNote(noteVal as string)
+        const noteVal = ('note' in appointment ? appointment.note : undefined) ?? ('Note' in appointment ? (appointment as any).Note : undefined) ?? appointment.extendedProps?.note ?? ''
+        setNote(noteVal)
 
-        // RAISON: paymentMethod n'est pas dans AppointmentSummary — narrowing via 'paymentMethod' in
-        const pm = ('paymentMethod' in appointment ? (appointment as CheckoutAppointment).paymentMethod : undefined) ?? appointment.extendedProps?.paymentMethod ?? 'CB'
-        setPaymentMethod(pm as string)
+        const pm = ('paymentMethod' in appointment ? (appointment as any).paymentMethod : undefined) ?? appointment.extendedProps?.paymentMethod ?? 'CB'
+        setPaymentMethod(pm)
     }, [appointment]);
 
     const isPaid = appointment?.status === "PAID" || appointment?.extendedProps?.status === "PAID";
-    // RAISON: service/customer peuvent venir de extendedProps (Record<string,unknown>) — cast local après vérification runtime
-    const service = appointment?.service || (appointment?.extendedProps?.service as { name?: string; price?: number } | undefined);
-    const customer = appointment?.customer || (appointment?.extendedProps?.customer as { name?: string } | undefined);
+    const service = appointment?.service || appointment?.extendedProps?.service;
+    const customer = appointment?.customer || appointment?.extendedProps?.customer;
     const basePrice = service?.price ?? 0;
 
-    // RAISON: extendedProps.finalPrice est unknown — cast number nécessaire pour le calcul
-    const extendedFinalPrice = appointment?.extendedProps?.finalPrice as number | undefined
     const displayPrice = isPaid
-        ? (appointment?.finalPrice || extendedFinalPrice || basePrice)
+        ? (appointment?.finalPrice || appointment?.extendedProps?.finalPrice || basePrice)
         : basePrice + extras.reduce((sum, item) => sum + item.price, 0);
 
     const handleConfirm = async () => {
         setLoading(true);
         try {
-            if (!appointment) return
             const res = await fetch(`/api/appointments/${appointment.id}/checkout`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
