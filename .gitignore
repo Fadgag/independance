@@ -39,3 +39,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma - ne jamais commiter la base de données locale
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+
+# Logs & PIDs dev server
+build.log
+.dev_server.log
+.dev_server.pid
+.devserver.log
+.devserver.pid
+*.log
+
+# IDE JetBrains
+.idea/
+
+# Scripts temporaires
+tmp_*.js
+
