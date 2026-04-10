@@ -82,20 +82,46 @@ export default function CheckoutModal({ appointment, onClose, onRefresh }: Check
     useEffect(() => {
         if (!appointment) return
 
-        // Narrowing: appointment may be CheckoutAppointment or AppointmentSummary
-        let rawExtras: string | Extra[] | undefined
-        if ('extras' in appointment) {
-          rawExtras = appointment.extras ?? (appointment.extendedProps?.extras as any)
-        } else {
-          rawExtras = appointment.extendedProps ? (appointment.extendedProps['extras'] as any) : undefined
+        // helper to safely extract extras from different appointment shapes
+        const extractExtras = (a: CheckoutAppointment | AppointmentSummary): Extra[] => {
+            // direct extras field (string or array)
+            if ('extras' in a && a.extras != null) {
+                const val = a.extras
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val) as Extra[] } catch { return [] }
+                }
+                if (Array.isArray(val)) return val as Extra[]
+            }
+            // fallback to extendedProps.extras
+            const ext = a.extendedProps?.extras
+            if (ext != null) {
+                if (typeof ext === 'string') {
+                    try { return JSON.parse(ext) as Extra[] } catch { return [] }
+                }
+                if (Array.isArray(ext)) return ext as Extra[]
+            }
+            return []
         }
-        setExtras(typeof rawExtras === 'string' ? JSON.parse(rawExtras || "[]") : (rawExtras || []))
 
-        const noteVal = ('note' in appointment ? appointment.note : undefined) ?? ('Note' in appointment ? (appointment as any).Note : undefined) ?? appointment.extendedProps?.note ?? ''
-        setNote(noteVal)
+        setExtras(extractExtras(appointment as any))
 
-        const pm = ('paymentMethod' in appointment ? (appointment as any).paymentMethod : undefined) ?? appointment.extendedProps?.paymentMethod ?? 'CB'
-        setPaymentMethod(pm)
+        const extractNote = (a: CheckoutAppointment | AppointmentSummary): string => {
+            // prefer note (lowercase), then Note (uppercase), then extendedProps.note
+            if ('note' in a && typeof a.note === 'string') return a.note
+            if ('Note' in a && typeof (a as any).Note === 'string') return (a as any).Note
+            const extNote = a.extendedProps?.note
+            return typeof extNote === 'string' ? extNote : ''
+        }
+
+        setNote(extractNote(appointment as any))
+
+        const extractPaymentMethod = (a: CheckoutAppointment | AppointmentSummary): string => {
+            if ('paymentMethod' in a && typeof (a as any).paymentMethod === 'string') return (a as any).paymentMethod
+            const extPm = a.extendedProps?.paymentMethod
+            return typeof extPm === 'string' ? extPm : 'CB'
+        }
+
+        setPaymentMethod(extractPaymentMethod(appointment as any))
     }, [appointment]);
 
     const isPaid = appointment?.status === "PAID" || appointment?.extendedProps?.status === "PAID";
