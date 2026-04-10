@@ -33,10 +33,19 @@ export async function createAppointmentAction(input: CreateAppointmentInput) {
 
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return { error: 'Invalid start or end date' }
 
+  // Determine assigned staff: prefer provided staffId, else fallback to first staff in the org
+  let assignedStaffId = staffId
+  if (!assignedStaffId) {
+    const fallback = await prisma.staff.findFirst({ where: { organizationId: orgId } })
+    assignedStaffId = fallback?.id
+  }
+  if (!assignedStaffId) return { error: 'No staff available to assign' }
+
   // Anti-overlap : verifier si le staff a un rendez-vous qui chevauche [startDate, endDate)
+  // NOTE: use assignedStaffId (never undefined) to avoid Prisma ignoring the filter when staffId is undefined
   const conflict = await prisma.appointment.findFirst({
     where: {
-      staffId,
+      staffId: assignedStaffId,
       organizationId: orgId,
       AND: [
         { startTime: { lt: endDate } },
@@ -48,14 +57,6 @@ export async function createAppointmentAction(input: CreateAppointmentInput) {
   if (conflict) {
     return { error: "Ce membre du personnel est déjà occupé sur ce créneau." }
   }
-
-  // Determine assigned staff: prefer provided staffId, else fallback to first staff in the org
-  let assignedStaffId = staffId
-  if (!assignedStaffId) {
-    const fallback = await prisma.staff.findFirst({ where: { organizationId: orgId } })
-    assignedStaffId = fallback?.id
-  }
-  if (!assignedStaffId) return { error: 'No staff available to assign' }
 
   // Créer le rendez-vous
   const appointment = await prisma.appointment.create({

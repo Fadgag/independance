@@ -162,9 +162,11 @@ export default function AppointmentScheduler() {
                                 title: info.event.title ?? undefined,
                                 start: info.event.start?.toISOString(),
                                 end: info.event.end?.toISOString(),
-                                extendedProps: info.event.extendedProps as Record<string, unknown>
+                                    // RAISON: FullCalendar `extendedProps` est typiquement `Record<string, unknown]`
+                                    extendedProps: info.event.extendedProps as Record<string, unknown>
                             };
                             // merge common extended props into top-level for simplicity
+                            // RAISON: FullCalendar exposes `extendedProps` comme `Record<string, unknown]`
                             Object.assign(eventData, info.event.extendedProps as Record<string, unknown>)
                             setEditingEvent(eventData);
                             setSelectedRange(null);

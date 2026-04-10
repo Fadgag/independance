@@ -4,7 +4,7 @@ import { auth } from "./auth"
 import type { NextRequest } from 'next/server'
 
 async function middlewareFn(req: NextRequest) {
-  // RAISON: next-auth v5 injecte req.auth dynamiquement sur NextRequest — non typé nativement
+  // RAISON: next-auth v5 injecte `auth` dynamiquement sur NextRequest — nous utilisons un cast contrôlé
   const maybeReq = req as unknown as Record<string, unknown>
   const authClaim = maybeReq['auth'] ?? null
   const isLoggedIn = !!authClaim

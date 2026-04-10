@@ -109,6 +109,7 @@ export default function CheckoutModal({ appointment, onClose, onRefresh }: Check
             // prefer note (lowercase), then Note (uppercase), then extendedProps.note
             if ('note' in a && typeof a.note === 'string') return a.note
             if ('Note' in a) {
+                // RAISON: `Note` (uppercase) est une propriété legacy fournie par Prisma dans certains shape de CheckoutAppointment
                 const val = (a as CheckoutAppointment).Note
                 if (typeof val === 'string') return val
             }
@@ -120,6 +121,7 @@ export default function CheckoutModal({ appointment, onClose, onRefresh }: Check
 
         const extractPaymentMethod = (a: CheckoutAppointment | AppointmentSummary): string => {
             if ('paymentMethod' in a) {
+                // RAISON: `paymentMethod` peut être présent directement sur CheckoutAppointment (legacy Prisma field)
                 const val = (a as CheckoutAppointment).paymentMethod
                 if (typeof val === 'string') return val
             }
