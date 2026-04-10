@@ -12,18 +12,6 @@ const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="fr" className={`${manrope.variable} ${notoSerif.variable} h-full`}>
-<<<<<<< HEAD
-        <body className="flex h-full w-full overflow-hidden m-0 p-0 bg-studio-bg">
-        <AuthProvider>
-          <MobileHeader />
-          <Sidebar />
-          <main className="flex-1 h-full flex flex-col min-w-0 relative pt-16 md:pt-0">
-              {children}
-          </main>
-          <Toaster position="top-right" richColors />
-        </AuthProvider>
-        </body>
-=======
           <head>
             {/* PWA manifest and mobile meta-tags */}
             <link rel="manifest" href="/manifest.json" />
@@ -36,15 +24,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </head>
           <body className="flex h-full w-full overflow-hidden m-0 p-0 bg-studio-bg">
             <AuthProvider>
+              <MobileHeader />
               <Sidebar />
-              <main className="flex-1 h-full flex flex-col min-w-0 relative">
+              <main className="flex-1 h-full flex flex-col min-w-0 relative pt-16 md:pt-0">
                 {children}
               </main>
               <Toaster position="top-right" richColors />
               <RegisterServiceWorker />
             </AuthProvider>
           </body>
->>>>>>> 18fe010 (feat(pwa): enable service worker registration and manifest fallbacks (feature/application-native))
         </html>
     );
 }
