@@ -22,8 +22,8 @@ export default function RegisterServiceWorker() {
           // dev-only diagnostic — no toast shown to end user
           if (process.env.NODE_ENV === 'development') console.info('[SW] Service worker registered for offline support')
         })
-        .catch((_err) => {
-          clientError('Service worker registration failed', _err)
+        .catch((err) => {
+          clientError('Service worker registration failed', err)
         })
 
       // Capture install prompt for later UI (if desired by app)

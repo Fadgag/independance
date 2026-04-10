@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'
+import { prisma } from '@/lib/prisma'
 import Decimal from 'decimal.js'
 import type { Prisma } from '@prisma/client'
 
@@ -15,20 +15,14 @@ export async function getOrgStats(orgId: string, startDate?: Date, endDate?: Dat
   let total = new Decimal(0)
   for (const a of appointments) {
     const price = a.service?.price ?? 0
-    let n: number
-    const pobj = price as unknown as { toNumber?: () => number }
-    if (pobj && typeof pobj.toNumber === 'function') {
-      try { n = pobj.toNumber() } catch { n = Number(price ?? 0) }
-    } else {
-      n = Number(price ?? 0)
-    }
+    // RAISON: Prisma Decimal peut être un objet Decimal ou une primitive selon la version du client — String() normalise les deux cas sans double-cast
+    const n = new Decimal(String(price)).toNumber()
     total = total.plus(new Decimal(n))
   }
 
   const appointmentsCount = appointments.length
 
   // NOTE: `Customer.createdAt` does not exist in the Prisma schema; fallback to total customers.
-  // If a createdAt field is added later, replace this by a date-scoped count per spec.
   const customersCount = await prisma.customer.count({ where: { organizationId: orgId } })
 
   // Basic occupancy: appointments per staff (caller may refine to time-window capacity)
@@ -39,6 +33,3 @@ export async function getOrgStats(orgId: string, startDate?: Date, endDate?: Dat
 }
 
 // getOrgDashboard supprimé — remplacé par dashboard.service.getDashboardForOrg
-const analyticsService = { getOrgStats }
-export default analyticsService
-
