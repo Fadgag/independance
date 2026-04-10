@@ -13,7 +13,7 @@ export default function Sidebar() {
     const { data: session } = useSession()
 
     return (
-        <aside data-testid="sidebar-desktop" className="hidden md:flex w-72 bg-[var(--studio-bg)] border-r border-[var(--studio-border)] flex flex-col h-screen sticky top-0 px-6 py-8">
+        <aside data-testid="sidebar-desktop" className="hidden md:flex w-72 bg-[var(--studio-bg)] border-r border-[var(--studio-border)] flex-col h-screen sticky top-0 px-6 py-8">
 
             {/* LOGO ELÉGANT */}
             <Link href="/" className="mb-12 px-4 block no-underline" aria-label="Accueil - Atelier">

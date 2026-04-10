@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import apiErrorResponse from '@/lib/api'
-import type { PrismaClient } from '@prisma/client'
-const db = prisma as PrismaClient
+import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 import { Resend } from 'resend'
 
@@ -12,7 +11,7 @@ export async function POST(req: Request) {
     if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
     // check user exists
-    const user = await db.user.findUnique({ where: { email } })
+    const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
       // do not reveal existence
       return NextResponse.json({ ok: true })
@@ -23,7 +22,7 @@ export async function POST(req: Request) {
     const expires = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
 
     // upsert token
-    await db.passwordResetToken.upsert({
+    await prisma.passwordResetToken.upsert({
       where: { email },
       update: { token, expires },
       create: { email, token, expires }
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
     // Instantiate Resend client lazily to avoid throwing at module load if API key is absent
     const resendApiKey = process.env.RESEND_API_KEY
     if (!resendApiKey) {
-      console.error('Resend API key not configured')
+      logger.error('Resend API key not configured')
       return NextResponse.json({ error: 'Email provider not configured' }, { status: 500 })
     }
     const resend = new Resend(resendApiKey)

@@ -38,8 +38,7 @@ export async function POST(
 
         return NextResponse.json({ success: true })
     } catch (err) {
-        console.error('Checkout Error:', err)
-        return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+        return apiErrorResponse(err)
     }
 }
 

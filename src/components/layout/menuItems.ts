@@ -1,18 +1,23 @@
+import type { ComponentType } from 'react'
+import type { LucideProps } from 'lucide-react'
 import { CalendarDays, Users, BarChart2, Settings } from 'lucide-react'
 
 export type MenuItem = {
     name: string
-    icon: (props: { size?: number; className?: string }) => JSX.Element
+    icon: ComponentType<LucideProps>
     href: string
     adminOnly: boolean
 }
 
 export const menuItems: MenuItem[] = [
-    { name: 'Accueil', icon: CalendarDays as any, href: '/', adminOnly: false },
-    { name: 'Agenda', icon: CalendarDays as any, href: '/agenda', adminOnly: false },
-    { name: 'Clients', icon: Users as any, href: '/customers', adminOnly: false },
-    { name: 'Statistiques', icon: BarChart2 as any, href: '/dashboard', adminOnly: true },
-    { name: 'Configuration', icon: Settings as any, href: '/settings', adminOnly: true },
+    { name: 'Accueil', icon: CalendarDays, href: '/', adminOnly: false },
+    { name: 'Agenda', icon: CalendarDays, href: '/agenda', adminOnly: false },
+    { name: 'Clients', icon: Users, href: '/customers', adminOnly: false },
+    { name: 'Statistiques', icon: BarChart2, href: '/dashboard', adminOnly: true },
+    { name: 'Configuration', icon: Settings, href: '/settings', adminOnly: true },
 ]
+
+
+
 
 

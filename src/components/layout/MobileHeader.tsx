@@ -9,7 +9,7 @@ export default function MobileHeader() {
 
     return (
         <>
-            <header className="flex md:hidden items-center justify-between px-4 h-16 fixed top-0 left-0 right-0 bg-[var(--studio-bg)] border-b border-[var(--studio-border)] z-40">
+            <header className="flex md:hidden items-center justify-between px-4 h-16 fixed top-0 left-0 right-0 bg-white border-b border-[var(--studio-border)] z-50">
                 <div className="flex items-center gap-3">
                     <button
                         data-testid="mobile-burger-button"
@@ -27,4 +27,6 @@ export default function MobileHeader() {
         </>
     )
 }
+
+
 

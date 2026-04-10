@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { menuItems } from './menuItems'
@@ -33,5 +34,6 @@ export default function MobileNav() {
         </nav>
     )
 }
+
 
 
