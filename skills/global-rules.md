@@ -25,9 +25,18 @@ Toute modification de code effectuée par un agent (Builder, AutoFixer, ou autre
   2. produire un résumé des changements (changelog),
   3. demander la validation humaine `GO` avant d'exécuter `git push`.
   
-## 🛡️ Proxy & Sécurité (Nouveau Standard Next.js 2026)
-- **Convention :** Le fichier `proxy.ts` est PROSCRIT. Utiliser `proxy.ts` à la racine.
-- **Rôle du Proxy :** 1. Intercepter la session.
-    2. Injecter les headers `x-org-id` de manière immuable.
-    3. Valider l'authentification avant d'atteindre les Server Components.
-- **Interdiction :** Ne jamais implémenter de logique de redirection complexe dans le code métier si elle peut être gérée au niveau du `proxy.ts`.
+## 🛡️ Proxy & Sécurité (Nouveau Standard Next.js 16)
+
+> ⚠️ **Breaking Change Next.js 16** — La convention du fichier middleware a changé.
+
+- **Convention :** Le fichier `middleware.ts` est **PROSCRIT** en Next.js 16. Le fichier de middleware s'appelle désormais **`src/proxy.ts`** (ou `proxy.ts` à la racine selon la config `src/`).
+- **Ne JAMAIS créer les deux en même temps :** Si `src/middleware.ts` ET `src/proxy.ts` coexistent, Next.js 16 lève une erreur de build fatale :
+  ```
+  Error: Both middleware file "./src/middleware.ts" and proxy file "./src/proxy.ts" are detected. Please use "./src/proxy.ts" only.
+  ```
+- **Typage Auth :** Dans `proxy.ts`, utiliser `NextAuthRequest` (importé de `'next-auth'`) et NON `NextRequest` de `'next/server'`. `NextAuthRequest` étend `NextRequest` avec `auth: Session | null`.
+- **Rôle du Proxy :**
+  1. Intercepter la session via `req.auth`.
+  2. Rediriger vers `/auth/signin` si non authentifié (hors pages `/auth/*`).
+  3. Valider l'authentification avant d'atteindre les Server Components.
+- **Interdiction :** Ne jamais implémenter de logique de redirection complexe dans le code métier si elle peut être gérée au niveau de `proxy.ts`.

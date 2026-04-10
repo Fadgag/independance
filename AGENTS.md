@@ -1,6 +1,17 @@
 # This is NOT the Next.js you know
 This version has breaking changes. Read `node_modules/next/dist/docs/` before writing code.
 
+## ⚠️ Breaking Changes Next.js 16 (CRITIQUE — lire avant tout code)
+
+| Concept | Next.js ≤ 15 | **Next.js 16** |
+|---|---|---|
+| Fichier middleware | `src/middleware.ts` | **`src/proxy.ts`** |
+| Type param middleware | `NextRequest` | **`NextAuthRequest` (next-auth)** |
+| Avoir les deux fichiers | — | **Erreur de build fatale** |
+
+> ❌ Ne JAMAIS créer `src/middleware.ts` — Next.js 16 lèvera : *"Both middleware file and proxy file are detected. Please use proxy.ts only."*
+> ✅ Le fichier `src/proxy.ts` EST le middleware. Il exporte `middleware`, `default` et `config`.
+
 ## Skills disponibles
 - `skills/agentic-workflow.agent.md`
 - `skills/taxe-core-technical-writer.agend.md`
