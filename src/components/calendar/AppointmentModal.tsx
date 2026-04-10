@@ -94,6 +94,7 @@ export default function AppointmentModal({
             const svcId = String(initialData.serviceId ?? initialData.extendedProps?.serviceId ?? '')
             const noteVal = String(initialData.note ?? initialData.extendedProps?.note ?? '')
             const cId = String(initialData.customerId ?? initialData.extendedProps?.customerId ?? '')
+            // RAISON: customers est CustomerType[] — find() reçoit le type générique de la prop, cast vers CustomerType nécessaire
             const selected = customers.find((c) => (c as CustomerType).id === cId) || null
 
             setSelectedCustomerState(selected)
@@ -113,7 +114,8 @@ export default function AppointmentModal({
         // otherwise, if a range was selected in the calendar, use that
         if (selectedRange) {
             // selectedRange is a FullCalendar DateSelectArg; extract safely
-            const sr = selectedRange as DateSelectArg
+            // RAISON: selectedRange est passé comme DateSelectArg depuis FullCalendar — prop typée Range (alias local)
+        const sr = selectedRange as DateSelectArg
             const start = new Date(sr.start)
             const end = new Date(sr.end)
             const startStr = isValid(start) ? format(start, "HH:mm") : ""
@@ -149,6 +151,7 @@ export default function AppointmentModal({
                 if (res.ok) {
                     const data = await res.json()
                     // data: array of CustomerPackage with package info
+                    // RAISON: l'API retourne CustomerPackage[] — res.json() est unknown, shape vérifiée par le contrat API
                     setCustomerPackages((data || []) as CustomerPackage[])
                 }
             } catch (err) {

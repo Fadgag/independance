@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { logger } from '@/lib/logger'
+import { logger } from './logger'
 
 // Central API error response helper
 export function apiErrorResponse(err: unknown) {
