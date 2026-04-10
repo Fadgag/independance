@@ -15,8 +15,7 @@ export default function MobileNav() {
             {menuItems.map((item) => {
                 const isActive = pathname === item.href
                 if (item.adminOnly) {
-                    const user = session?.user as Record<string, unknown> | undefined
-                    if (!user || typeof user.role !== 'string' || user.role !== 'ADMIN') return null
+                    if (!session?.user || session.user.role !== 'ADMIN') return null
                 }
 
                 return (
@@ -34,6 +33,7 @@ export default function MobileNav() {
         </nav>
     )
 }
+
 
 
 

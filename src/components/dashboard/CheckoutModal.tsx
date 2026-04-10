@@ -103,25 +103,31 @@ export default function CheckoutModal({ appointment, onClose, onRefresh }: Check
             return []
         }
 
-        setExtras(extractExtras(appointment as any))
+        setExtras(extractExtras(appointment))
 
         const extractNote = (a: CheckoutAppointment | AppointmentSummary): string => {
             // prefer note (lowercase), then Note (uppercase), then extendedProps.note
             if ('note' in a && typeof a.note === 'string') return a.note
-            if ('Note' in a && typeof (a as any).Note === 'string') return (a as any).Note
+            if ('Note' in a) {
+                const val = (a as CheckoutAppointment).Note
+                if (typeof val === 'string') return val
+            }
             const extNote = a.extendedProps?.note
             return typeof extNote === 'string' ? extNote : ''
         }
 
-        setNote(extractNote(appointment as any))
+        setNote(extractNote(appointment))
 
         const extractPaymentMethod = (a: CheckoutAppointment | AppointmentSummary): string => {
-            if ('paymentMethod' in a && typeof (a as any).paymentMethod === 'string') return (a as any).paymentMethod
+            if ('paymentMethod' in a) {
+                const val = (a as CheckoutAppointment).paymentMethod
+                if (typeof val === 'string') return val
+            }
             const extPm = a.extendedProps?.paymentMethod
             return typeof extPm === 'string' ? extPm : 'CB'
         }
 
-        setPaymentMethod(extractPaymentMethod(appointment as any))
+        setPaymentMethod(extractPaymentMethod(appointment))
     }, [appointment]);
 
     const isPaid = appointment?.status === "PAID" || appointment?.extendedProps?.status === "PAID";

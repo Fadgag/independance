@@ -4,11 +4,13 @@ import apiErrorResponse from '@/lib/api'
 import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 import { Resend } from 'resend'
+import { z } from 'zod'
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json()
-    if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+    const parsedBody = z.object({ email: z.string().email() }).safeParse(await req.json())
+    if (!parsedBody.success) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+    const { email } = parsedBody.data
 
     // check user exists
     const user = await prisma.user.findUnique({ where: { email } })
