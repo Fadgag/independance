@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 
-export const manifest = {
   name: 'Indépendance',
   short_name: 'Indépendance',
   start_url: '/',
@@ -12,10 +11,3 @@ export const manifest = {
     { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
   ],
 } as const
-
-export default function GET() {
-  return NextResponse.json(manifest, {
-    headers: { 'Content-Type': 'application/manifest+json' },
-  })
-}
-

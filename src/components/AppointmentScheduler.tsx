@@ -18,14 +18,18 @@ import 'tippy.js/animations/shift-away.css';
 
 export default function AppointmentScheduler() {
     // --- INTERFACES & ÉTATS ---
-    interface CalEvent {
-        id: string;
-        title?: string;
-        start?: string;
-        end?: string;
-        extendedProps?: Record<string, unknown>;
-        color?: string
-    }
+}
+
+interface CalEvent {
+    id: string;
+    title?: string;
+    start?: string;
+    end?: string;
+    extendedProps?: Record<string, unknown>;
+    color?: string
+}
+
+export default function AppointmentScheduler() {
 
     const [events, setEvents] = useState<CalEvent[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +62,15 @@ export default function AppointmentScheduler() {
             import('../lib/clientLogger').then(({ clientError }) => clientError('Erreur RDV', err))
         }
     }, []);
+
+    // Listen for external appointment updates (e.g. created from QuickAppointmentModal)
+    useEffect(() => {
+        function onUpdated() {
+            fetchAppointments();
+        }
+        window.addEventListener('appointments:updated', onUpdated);
+        return () => window.removeEventListener('appointments:updated', onUpdated);
+    }, [fetchAppointments]);
 
     // use imported isAbortError from '@/lib/utils'
 
