@@ -28,13 +28,14 @@ export default function BaseModal({ isOpen, onClose, title, children, maxWidth =
     const { registerOpen, registerClose, isTop, zIndex } = useModalStack(modalId)
 
     // manage registration on open/close
-    React.useEffect(() => {
+    // useLayoutEffect fires synchronously before paint, avoiding the 1-frame
+    // window where isTop=false and aria-hidden=true is applied on first render
+    React.useLayoutEffect(() => {
         if (isOpen) {
             registerOpen()
         }
 
         return () => {
-            // ensure we pop when unmounting or closing
             if (isOpen) registerClose()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

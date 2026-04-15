@@ -27,12 +27,12 @@ vi.mock('@/hooks/useServices', () => {
 vi.mock('@/components/calendar/CustomerPicker', () => {
   return {
     __esModule: true,
-    CustomerPicker: ({ customers, selectedId, onSelect }: {
+    CustomerPicker: ({ customers, selectedId, onSelectAction }: {
       customers: Customer[]
       selectedId?: string
-      onSelect: (id: string) => void
+      onSelectAction: (id: string) => void
     }) => (
-      <select data-testid="mock-customer-picker" value={selectedId || ''} onChange={(e) => onSelect(e.target.value)}>
+      <select data-testid="mock-customer-picker" value={selectedId || ''} onChange={(e) => onSelectAction(e.target.value)}>
         <option value="">--</option>
         {customers.map((c: Customer) => (
           <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>

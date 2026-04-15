@@ -4,14 +4,14 @@ import * as React from "react"
 import { Check, ChevronsUpDown, UserPlus, Search, X, Loader2 } from "lucide-react"
 import { cn } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
+import { createCustomerAndReturn } from '@/actions/createCustomerAndReturn'
 
 type Customer = { id: string; firstName: string; lastName: string }
-
 type CreatedCustomer = { id: string; firstName: string; lastName: string; phone?: string | null }
 
-export function CustomerPicker({ customers, onSelect, selectedId, onCreatedAction }: {
+export function CustomerPicker({ customers, onSelectAction, selectedId, onCreatedAction }: {
     customers: Customer[]
-    onSelect: (id: string) => void
+    onSelectAction: (id: string) => void
     selectedId?: string | null
     /** Called after a quick-create with the full new customer object */
     onCreatedAction?: (customer: CreatedCustomer) => void
@@ -20,6 +20,11 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
     const [search, setSearch] = React.useState("")
     // keep created customer locally so trigger shows name before parent list refreshes
     const [localCustomer, setLocalCustomer] = React.useState<Customer | null>(null)
+
+    // Reset localCustomer when selectedId is cleared from outside (e.g. form reset)
+    React.useEffect(() => {
+        if (!selectedId) setLocalCustomer(null)
+    }, [selectedId])
 
     // inline creation form state
     const [creating, setCreating] = React.useState(false)
@@ -50,8 +55,7 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
         setCreateError(null)
     }
 
-    async function submitCreate(e?: React.SyntheticEvent) {
-        if (e) { e.preventDefault(); e.stopPropagation() }
+    async function submitCreate() {
         if (!createFirst.trim() || !createLast.trim()) {
             setCreateError("Prénom et nom requis")
             return
@@ -59,35 +63,32 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
         setCreateLoading(true)
         setCreateError(null)
         try {
-            const payload: Record<string, unknown> = { firstName: createFirst, lastName: createLast }
-            if (createPhone && createPhone.trim()) payload.phone = createPhone.trim()
-            const res = await fetch('/api/customers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
+            const result = await createCustomerAndReturn({
+                firstName: createFirst.trim(),
+                lastName: createLast.trim(),
+                phone: createPhone.trim() || null
             })
-            const j = await res.json()
-            if (!res.ok) {
-                if (res.status === 409 && j?.existing) {
+
+            if (!result.success) {
+                if (result.existing) {
                     // duplicate phone — select the existing customer directly
-                    showToast(`Client existant sélectionné : ${j.existing.firstName} ${j.existing.lastName}`)
-                    const existingCust = { id: j.existing.id, firstName: j.existing.firstName, lastName: j.existing.lastName }
+                    showToast(`Client existant sélectionné : ${result.existing.firstName} ${result.existing.lastName}`)
+                    const existingCust = { id: result.existing.id, firstName: result.existing.firstName, lastName: result.existing.lastName }
                     setLocalCustomer(existingCust)
-                    onSelect(j.existing.id)
-                    onCreatedAction?.(j.existing)
+                    onSelectAction(result.existing.id)
+                    onCreatedAction?.(result.existing)
                     setCreating(false)
                     setOpen(false)
                     setSearch("")
                 } else {
-                    setCreateError(j?.error || j?.message || "Erreur lors de la création")
+                    setCreateError(result.error)
                 }
             } else {
-                showToast(`${j.firstName} ${j.lastName} ajouté(e)`)
-                const newCust = { id: j.id, firstName: j.firstName, lastName: j.lastName }
+                showToast(`${result.customer.firstName} ${result.customer.lastName} ajouté(e)`)
+                const newCust = { id: result.customer.id, firstName: result.customer.firstName, lastName: result.customer.lastName }
                 setLocalCustomer(newCust)
-                onSelect(j.id)
-                onCreatedAction?.(j)
+                onSelectAction(result.customer.id)
+                onCreatedAction?.(result.customer)
                 // notify scheduler to refresh customers list
                 try { window.dispatchEvent(new CustomEvent('customers:updated')) } catch {}
                 setCreating(false)
@@ -138,7 +139,7 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
                                             key={customer.id}
                                             onMouseDown={(e) => {
                                                 e.preventDefault()
-                                                onSelect(customer.id)
+                                                onSelectAction(customer.id)
                                                 setOpen(false)
                                             }}
                                             className="flex items-center justify-between p-2.5 text-sm rounded-lg hover:bg-atelier-light cursor-pointer group"
@@ -183,6 +184,7 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
                                 <div className="flex gap-2">
                                     <input
                                         autoFocus
+                                        aria-label="Prénom du nouveau client"
                                         placeholder="Prénom *"
                                         value={createFirst}
                                         onChange={(e) => setCreateFirst(e.target.value)}
@@ -190,6 +192,7 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
                                         className="flex-1 p-2 border border-slate-200 rounded-lg text-xs outline-none focus:border-atelier-primary"
                                     />
                                     <input
+                                        aria-label="Nom du nouveau client"
                                         placeholder="Nom *"
                                         value={createLast}
                                         onChange={(e) => setCreateLast(e.target.value)}
@@ -198,7 +201,8 @@ export function CustomerPicker({ customers, onSelect, selectedId, onCreatedActio
                                     />
                                 </div>
                                 <input
-                                    placeholder="Téléphone"
+                                    aria-label="Téléphone du nouveau client"
+                                    placeholder="Téléphone (optionnel)"
                                     value={createPhone}
                                     onChange={(e) => setCreatePhone(e.target.value)}
                                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCreate() } }}

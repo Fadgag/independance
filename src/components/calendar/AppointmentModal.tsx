@@ -339,7 +339,7 @@ export default function AppointmentModal({
                     <label className="text-[11px] font-bold text-studio-muted mb-2 block uppercase">Client</label>
                     <CustomerPicker
                         customers={customers}
-                        onSelect={(id: string) => setSelectedCustomer(customers.find(c => c.id === id) || null)}
+                        onSelectAction={(id: string) => setSelectedCustomer(customers.find(c => c.id === id) || null)}
                         selectedId={selectedCustomer?.id}
                         onCreatedAction={(cust) => {
                             // RAISON: `cust` est l'objet JSON renvoyé par `/api/customers` —
