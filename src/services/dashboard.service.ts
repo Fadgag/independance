@@ -192,3 +192,72 @@ export async function getDashboardForOrg(orgId: string, periodOrRange: PeriodPar
 
 const dashboardService = { getDashboardForOrg }
 export default dashboardService
+
+export type DashboardDetailItem = {
+  appointmentId: string
+  date: string
+  clientName: string
+  serviceName: string
+  productsSum: number
+  totalTTC: number
+  products: Array<{ productId?: string; name?: string; priceTTC?: number; quantity?: number }>
+}
+
+export async function getDashboardDetails(orgId: string, from: Date, to: Date, filter: 'all' | 'services' | 'products' = 'all', page = 1, pageSize = 50) {
+  const where: Prisma.AppointmentWhereInput = { organizationId: orgId, startTime: { gte: from, lte: to }, status: { not: 'CANCELLED' } }
+  if (filter === 'services') {
+    // Only appointments with service revenue (always have a service)
+  } else if (filter === 'products') {
+    // Only appointments with products
+    where.NOT = { soldProducts: null }
+  }
+
+  const rows = await prisma.appointment.findMany({
+    where,
+    include: {
+      customer: { select: { firstName: true, lastName: true } },
+      service: { select: { name: true, price: true } }
+    },
+    orderBy: { startTime: 'desc' },
+    skip: (page - 1) * pageSize,
+    take: pageSize
+  })
+
+  const items: DashboardDetailItem[] = []
+  for (const a of rows) {
+    const clientName = a.customer ? `${a.customer.firstName} ${a.customer.lastName}`.trim() : '—'
+    const serviceName = a.service?.name ?? '—'
+    // parse products (support legacy string or json field)
+    // soldProductsJson may not exist in older DB clients — use a runtime access and tolerate absent property
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawSold = ((a as any).soldProductsJson ?? a.soldProducts) as unknown
+    let productsSum = 0
+    const products: DashboardDetailItem['products'] = []
+    if (rawSold) {
+      try {
+        const arr = typeof rawSold === 'string' ? JSON.parse(rawSold) : rawSold
+        if (Array.isArray(arr)) {
+          for (const it of arr) {
+            const qty = typeof it.quantity === 'number' ? it.quantity : (it.quantity ? Number(it.quantity) : 1)
+            const unit = typeof it.priceTTC === 'number' ? it.priceTTC : (it.priceTTC ? Number(it.priceTTC) : 0)
+            const lineTotal = (typeof it.totalTTC === 'number' ? it.totalTTC : unit * (qty || 1))
+            productsSum += Number(lineTotal)
+            products.push({ productId: it.productId, name: it.name, priceTTC: unit, quantity: qty })
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const servicePrice = a.service?.price ? Number(a.service.price) : 0
+    const totalTTC = (a.finalPrice != null ? Number(a.finalPrice) : (servicePrice + productsSum))
+
+    items.push({ appointmentId: a.id, date: a.startTime.toISOString(), clientName, serviceName, productsSum, totalTTC, products })
+  }
+
+  // simple total count (could be optimized)
+  const total = await prisma.appointment.count({ where })
+  return { items, total }
+}
+

@@ -119,7 +119,16 @@ export default function DashboardShell({ initialData, currentPeriod }: Dashboard
             {/* Grille des KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {kpis.map((kpi) => (
-                    <div key={kpi.title} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
+                    <div
+                        key={kpi.title}
+                        role={kpi.title === 'CA Réalisé' || kpi.title === 'CA Prévisionnel' ? 'button' : undefined}
+                        tabIndex={0}
+                        onClick={() => {
+                            if (kpi.title === 'CA Réalisé') return router.push('/dashboard/details?filter=all')
+                            if (kpi.title === 'CA Prévisionnel') return router.push('/dashboard/details?filter=all')
+                        }}
+                        className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+                    >
                         <div className="flex items-start justify-between mb-4">
                             <div className={`p-4 rounded-2xl ${kpi.bg} ${kpi.color} transition-transform group-hover:scale-110 duration-300`}>
                                 <kpi.icon size={24} />
