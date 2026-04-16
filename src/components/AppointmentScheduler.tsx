@@ -8,7 +8,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import frLocale from '@fullcalendar/core/locales/fr';
-import type { DateSelectArg, EventClickArg, EventContentArg, EventMountArg, EventDropArg } from '@fullcalendar/core';
+import type { DateSelectArg, EventClickArg, EventContentArg, EventMountArg, EventDropArg, DatesSetArg } from '@fullcalendar/core';
 import AppointmentModal from './calendar/AppointmentModal';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
@@ -39,9 +39,13 @@ export default function AppointmentScheduler() {
     const [staffs, setStaffs] = useState<Staff[]>([]);
 
     // --- CHARGEMENT DES DONNÉES ---
-    const fetchAppointments = useCallback(async (signal?: AbortSignal) => {
+    const fetchAppointments = useCallback(async (start?: string, end?: string, signal?: AbortSignal) => {
         try {
-            const res = await fetch('/api/appointments', { signal, credentials: 'include' });
+            const params = new URLSearchParams()
+            if (start) params.set('start', start)
+            if (end) params.set('end', end)
+            const url = `/api/appointments${params.toString() ? `?${params}` : ''}`
+            const res = await fetch(url, { signal, credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 if (!signal || !signal.aborted) setEvents(data);
@@ -55,7 +59,11 @@ export default function AppointmentScheduler() {
     // Listen for external appointment updates (e.g. created from QuickAppointmentModal)
     useEffect(() => {
         function onUpdated() {
-            fetchAppointments();
+            // Recharge sur la plage des 3 mois autour d'aujourd'hui
+            const now = new Date()
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+            const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString()
+            fetchAppointments(start, end)
         }
         window.addEventListener('appointments:updated', onUpdated);
 
@@ -78,7 +86,11 @@ export default function AppointmentScheduler() {
         const signal = controller.signal;
 
         const loadResources = async () => {
-            await fetchAppointments(signal);
+            // Charge les RDV pour 2 mois autour de maintenant au démarrage
+            const now = new Date()
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+            const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString()
+            await fetchAppointments(start, end, signal);
             try {
                 const [resC, resS, resT] = await Promise.all([
                     fetch('/api/customers', { signal, credentials: 'include' }),
@@ -123,6 +135,11 @@ export default function AppointmentScheduler() {
                             left: 'prev,next today',
                             center: 'title',
                             right: 'timeGridDay,timeGridWeek'
+                        }}
+
+                        // Recharge les RDV à chaque changement de période (navigation semaine/mois)
+                        datesSet={(info: DatesSetArg) => {
+                            fetchAppointments(info.startStr, info.endStr)
                         }}
 
                         // --- 1. RENDU DES CASES (MINI) ---

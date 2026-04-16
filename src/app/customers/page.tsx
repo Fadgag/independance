@@ -2,9 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Search, Plus } from 'lucide-react'
-import dynamic from 'next/dynamic'
-import {redirect} from "next/navigation";
-import {auth} from "@/auth";
+import dynamic from 'next/dynamic';
 
 const CustomerModal = dynamic(() => import('@/components/customers/CustomerModal'), { ssr: false })
 
