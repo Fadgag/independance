@@ -20,14 +20,30 @@ export default async function DetailsPage({ searchParams }: { searchParams: Prom
   // Next.js can pass searchParams values as string | string[]; coerce to string before validation
   const coerceToString = (v: unknown) => (Array.isArray(v) ? v[0] : v)
 
+  // Normalize incoming params: accept both `start`/`end` (used by other components)
+  // and `from`/`to`. Also make `status` case-insensitive by lowercasing it
+  const rawParams = resolvedParams || {}
+  const startRaw = coerceToString((rawParams as any).start ?? (rawParams as any).from)
+  const endRaw = coerceToString((rawParams as any).end ?? (rawParams as any).to)
+  const filterRaw = coerceToString((rawParams as any).filter)
+  const statusRaw = coerceToString((rawParams as any).status)
+
+  const normalizedParams = {
+    from: startRaw ?? undefined,
+    to: endRaw ?? undefined,
+    filter: filterRaw ?? undefined,
+    // ensure case-insensitive handling for status
+    status: typeof statusRaw === 'string' ? statusRaw.toLowerCase() : undefined
+  }
+
   const SearchSchema = z.object({
-    from: z.preprocess(coerceToString, z.string().optional().refine((v) => !v || !isNaN(new Date(v).getTime()), { message: 'Invalid from date' })),
-    to: z.preprocess(coerceToString, z.string().optional().refine((v) => !v || !isNaN(new Date(v).getTime()), { message: 'Invalid to date' })),
-    filter: z.preprocess(coerceToString, z.enum(['all', 'services', 'products']).optional()),
-    status: z.preprocess(coerceToString, z.enum(['all', 'paid']).optional())
+    from: z.string().optional().refine((v) => !v || !isNaN(new Date(v).getTime()), { message: 'Invalid from date' }),
+    to: z.string().optional().refine((v) => !v || !isNaN(new Date(v).getTime()), { message: 'Invalid to date' }),
+    filter: z.enum(['all', 'services', 'products']).optional(),
+    status: z.enum(['all', 'paid']).optional()
   })
 
-  const parsed = SearchSchema.safeParse(resolvedParams || {})
+  const parsed = SearchSchema.safeParse(normalizedParams)
   if (!parsed.success) {
     // Show an error message instead of silently redirecting — helps debug why params fail
     return (
@@ -46,13 +62,23 @@ export default async function DetailsPage({ searchParams }: { searchParams: Prom
   const status = parsed.data.status ?? 'all'
   const onlyPaid = status === 'paid'
 
-  const { items } = await getDashboardDetails(orgId, from, to, filter, 1, 50, onlyPaid)
+  const { items, total, totals } = await getDashboardDetails(orgId, from, to, filter, 1, 50, onlyPaid)
 
   return (
     <div className="h-full w-full overflow-y-auto bg-[#fafafa] p-4 md:p-8 lg:p-12">
       <div className="max-w-6xl mx-auto bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <h2 className="text-2xl font-bold mb-2">Détails des encaissements {onlyPaid ? '— Encaissés' : ''}</h2>
-        <p className="text-sm text-gray-500 mb-4">Affichage {onlyPaid ? 'des rendez‑vous encaissés' : 'de tous les rendez‑vous'} sur la période sélectionnée. ({items.length} ligne{items.length > 1 ? 's' : ''})</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <p className="text-sm text-gray-500">Affichage {onlyPaid ? 'des rendez‑vous encaissés' : 'de tous les rendez‑vous'} sur la période sélectionnée. ({total} rendez-vous)</p>
+          <div className="px-3 py-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
+            <div className="font-medium">Récapitulatif</div>
+            <div className="flex gap-4 mt-1">
+              <div>Total TTC: <span className="font-black">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(totals?.totalAmount ?? 0)}</span></div>
+              <div>Prestations: <span className="font-medium">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(totals?.totalServicesSum ?? 0)}</span></div>
+              <div>Ventes: <span className="font-medium">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(totals?.totalProductsSum ?? 0)}</span></div>
+            </div>
+          </div>
+        </div>
         <Suspense fallback={null}>
           <DetailsFilterBar currentFilter={filter} />
         </Suspense>

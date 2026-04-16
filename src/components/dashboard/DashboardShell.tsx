@@ -158,6 +158,7 @@ export default function DashboardShell({ initialData, currentPeriod }: Dashboard
               tabIndex={isClickable ? 0 : undefined}
               onClick={isClickable ? () => {
                 const range = computeRange(currentPeriod)
+                // status values are stored in DB as uppercase (e.g. 'PAID') so send uppercase to backend
                 const base = kpi.title === 'CA Réalisé' ? `/dashboard/details?filter=all&status=paid` : `/dashboard/details?filter=all`
                 router.push(`${base}&start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`)
               } : undefined}
