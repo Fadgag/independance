@@ -3,6 +3,7 @@ import { getDashboardDetails } from '@/services/dashboard.service'
 import { z } from 'zod'
 import DetailsFilterBar from '@/components/dashboard/DetailsFilterBar'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,9 @@ export default async function DetailsPage({ searchParams }: { searchParams: { fr
     <div className="h-full w-full overflow-y-auto bg-[#fafafa] p-4 md:p-8 lg:p-12">
       <div className="max-w-6xl mx-auto bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <h2 className="text-2xl font-bold mb-4">Détails des encaissements</h2>
-        <DetailsFilterBar currentFilter={filter as 'all'|'services'|'products'} />
+        <Suspense fallback={null}>
+          <DetailsFilterBar currentFilter={filter} />
+        </Suspense>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
