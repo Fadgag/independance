@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import apiErrorResponse from '@/lib/api'
-import { CreateAppointmentSchema } from '@/schemas/appointments'
+import { CreateAppointmentSchema, UpdateAppointmentSchema } from '@/schemas/appointments'
 import { auth } from "@/auth"
 import { parseJsonField } from '@/lib/parseAppointmentJson'
 import type { Extra, SoldProduct } from '@/types/models'
@@ -23,28 +23,32 @@ export async function GET(request: Request) {
         }
 
         if (startParam) {
-            const startDate = new Date(startParam)
+            const startDate = new Date(new Date(startParam).setHours(0, 0, 0, 0))
             if (!isNaN(startDate.getTime())) {
-                startDate.setHours(0, 0, 0, 0)
                 where.startTime = { gte: startDate }
             }
         }
         if (endParam) {
-            const endDate = new Date(endParam)
+            const endDate = new Date(new Date(endParam).setHours(23, 59, 59, 999))
             if (!isNaN(endDate.getTime())) {
-                endDate.setHours(23, 59, 59, 999)
                 where.startTime = { ...where.startTime, lte: endDate }
             }
         }
 
         const appointments = await prisma.appointment.findMany({
             where,
-            include: { service: true, customer: true },
+            include: {
+              service: { select: { id: true, name: true, price: true, color: true } },
+              customer: { select: { id: true, firstName: true, lastName: true } }
+            },
         })
 
         return NextResponse.json(appointments
             .filter((a) => a.startTime)
-            .map((a) => ({
+            .map((a) => {
+                const extrasParsed = parseJsonField<Extra>(a.extras)
+                const soldParsed = parseJsonField<SoldProduct>(a.soldProducts)
+                return {
                 id: a.id,
                 title: `${a.customer?.firstName || 'Client'} ${a.customer?.lastName || ''} — ${a.service?.name || 'Service'}`,
                 start: a.startTime ? a.startTime.toISOString() : a.createdAt.toISOString(),
@@ -63,18 +67,18 @@ export async function GET(request: Request) {
                 } : null,
                 resourceId: a.staffId,
                 color: a.service?.color || "#3788d8",
-                extras: parseJsonField<Extra>(a.extras),
-                soldProducts: parseJsonField<SoldProduct>(a.soldProducts),
+                extras: extrasParsed,
+                soldProducts: soldParsed,
                 extendedProps: {
                     serviceId: a.serviceId,
                     customerId: a.customerId,
                     note: a.note || null,
                     duration: a.duration,
                     status: a.status,
-                    extras: parseJsonField<Extra>(a.extras),
-                    soldProducts: parseJsonField<SoldProduct>(a.soldProducts),
+                    extras: extrasParsed,
+                    soldProducts: soldParsed,
                 }
-            })))
+            }}))
     } catch (err) {
         return apiErrorResponse(err)
     }
@@ -93,8 +97,10 @@ export async function POST(request: Request) {
         }
 
         const { start, end, duration, serviceId, customerId, staffId, note } = parsed.data
+        // Narrow organizationId for Prisma queries
+        const organizationId = session.user.organizationId as string
 
-        const svc = await prisma.service.findUnique({ where: { id: serviceId }, select: { price: true } })
+        const svc = await prisma.service.findFirst({ where: { id: serviceId, organizationId }, select: { price: true } })
         const servicePrice = svc?.price ?? 0
 
         const appointment = await prisma.appointment.create({
@@ -130,7 +136,6 @@ export async function PUT(request: Request) {
         if (!session?.user?.organizationId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await request.json()
-        const { UpdateAppointmentSchema } = await import('@/schemas/appointments')
         const parsed = UpdateAppointmentSchema.safeParse(body)
         if (!parsed.success) {
             return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
@@ -162,8 +167,10 @@ export async function PUT(request: Request) {
             if (conflict) return NextResponse.json({ error: 'Conflit horaire détecté' }, { status: 409 })
         }
 
-        const updated = await prisma.appointment.update({
-            where: { id },
+        // Use updateMany to ensure organizationId scope in a single atomic DB operation,
+        // then fetch the updated record for the response.
+        const res = await prisma.appointment.updateMany({
+            where: { id, organizationId: session.user.organizationId },
             data: {
                 startTime: newStart,
                 endTime: newEnd,
@@ -173,7 +180,8 @@ export async function PUT(request: Request) {
                 ...(note !== undefined && { note: note || null }),
             }
         })
-
+        if (res.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        const updated = await prisma.appointment.findFirst({ where: { id, organizationId: session.user.organizationId } })
         return NextResponse.json(updated)
     } catch (err) {
         return apiErrorResponse(err)
@@ -199,7 +207,7 @@ export async function DELETE(request: Request) {
                 if (body.from) from = body.from
                 if (body.confirm !== undefined) confirm = Boolean(body.confirm)
             }
-        } catch (e) {
+        } catch {
             // pas de body -> ok, on continue avec les query params
         }
 
@@ -210,26 +218,21 @@ export async function DELETE(request: Request) {
         })
         if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-        // Si la suppression est demandée depuis la page d'encaissement,
-        // exiger une confirmation explicite pour éviter de supprimer un rdv
-        // pour lequel un paiement a déjà été enregistré.
-        if (from === 'checkout') {
-            if (!confirm) {
-                return NextResponse.json({ error: 'Confirmation requise pour suppression depuis la page encaissement' }, { status: 400 })
-            }
-
-            const finalPrice = existing.finalPrice ? Number(existing.finalPrice) : 0
-            const isPaidStatus = existing.status === 'PAID' || existing.status === 'PAYED'
-
-            if (finalPrice > 0 || isPaidStatus) {
-                // Si un paiement est présent, refuser par défaut la suppression sans confirmation
-                // (ici confirm=true a déjà été vérifié). On peut éventuellement ajouter
-                // un journal / déclencher une alerte ici.
-            }
+        // Défense en profondeur (inconditionnelle) : interdire la suppression d'un RDV payé
+        // quelle que soit l'origine de la requête (agenda, encaissement, API directe).
+        const isPaid = existing.status === 'PAID' || existing.status === 'PAYED'
+            || (existing.finalPrice ? Number(existing.finalPrice) : 0) > 0
+        if (isPaid) {
+            return NextResponse.json({ error: 'Cannot delete a paid appointment' }, { status: 403 })
         }
 
-        await prisma.appointment.delete({ where: { id } })
+        // Si la suppression vient de l'encaissement, exiger une confirmation explicite
+        if (from === 'checkout' && !confirm) {
+            return NextResponse.json({ error: 'Confirmation requise pour suppression depuis la page encaissement' }, { status: 400 })
+        }
 
+        const del = await prisma.appointment.deleteMany({ where: { id, organizationId: session.user.organizationId } })
+        if (del.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
         return NextResponse.json({ ok: true })
     } catch (err) {
         return apiErrorResponse(err)
