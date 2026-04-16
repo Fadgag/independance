@@ -7,7 +7,8 @@ import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DetailsPage({ searchParams }: { searchParams: { from?: string; to?: string; filter?: string } }) {
+export default async function DetailsPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; filter?: string; status?: string }> }) {
+  const resolvedParams = await searchParams
   const session = await auth()
   // Guard: ensure session and organizationId. Use a single guarded block that returns early after redirect.
   if (!session?.user?.organizationId) {
@@ -26,7 +27,7 @@ export default async function DetailsPage({ searchParams }: { searchParams: { fr
     status: z.preprocess(coerceToString, z.enum(['all', 'paid']).optional())
   })
 
-  const parsed = SearchSchema.safeParse(searchParams || {})
+  const parsed = SearchSchema.safeParse(resolvedParams || {})
   if (!parsed.success) {
     // Show an error message instead of silently redirecting — helps debug why params fail
     return (
