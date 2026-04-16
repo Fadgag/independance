@@ -14,6 +14,41 @@ export default function DashboardShell({ initialData, currentPeriod }: Dashboard
   const router = useRouter();
   const pathname = usePathname();
 
+  // Compute start/end ISO strings for the given period key
+  const computeRange = (period: string) => {
+    const now = new Date()
+    const start = new Date(now)
+    const end = new Date(now)
+    if (period === 'today') {
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'week') {
+      // week starting Monday
+      const day = start.getDay() || 7 // Sunday -> 7
+      const diff = day - 1
+      start.setDate(start.getDate() - diff)
+      start.setHours(0, 0, 0, 0)
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+    } else if (period === 'month') {
+      start.setDate(1)
+      start.setHours(0, 0, 0, 0)
+      end.setMonth(start.getMonth() + 1)
+      end.setDate(0) // last day previous month -> last day of current month
+      end.setHours(23, 59, 59, 999)
+    } else if (period === '30days') {
+      start.setDate(start.getDate() - 30)
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+    } else {
+      // fallback last 30 days
+      start.setDate(start.getDate() - 30)
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+    }
+    return { start: start.toISOString(), end: end.toISOString() }
+  }
+
   // Fonction pour formater les prix en Euros
   const formatEuro = (val: number) =>
     new Intl.NumberFormat("fr-FR", {
@@ -121,7 +156,11 @@ export default function DashboardShell({ initialData, currentPeriod }: Dashboard
               key={kpi.title}
               role={isClickable ? "button" : undefined}
               tabIndex={isClickable ? 0 : undefined}
-              onClick={isClickable ? () => router.push(kpi.title === 'CA Réalisé' ? '/dashboard/details?filter=all&status=paid' : '/dashboard/details?filter=all') : undefined}
+              onClick={isClickable ? () => {
+                const range = computeRange(currentPeriod)
+                const base = kpi.title === 'CA Réalisé' ? `/dashboard/details?filter=all&status=paid` : `/dashboard/details?filter=all`
+                router.push(`${base}&start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`)
+              } : undefined}
               className={`bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow group ${isClickable ? "cursor-pointer" : ""}`}
             >
               <div className="flex items-start justify-between mb-4">
