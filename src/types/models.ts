@@ -1,4 +1,17 @@
 // Types maintained for app usage (derived from prisma schema where relevant)
+
+export interface Product {
+  id: string
+  name: string
+  priceTTC: number
+  taxRate: number
+  stock: number
+  iconName: string
+  organizationId: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Note: certaines interfaces peuvent ne pas être référencées directement par l'analyse statique
 // mais sont exposées pour usage futur / correspondance Prisma. Suppression eslint locale.
 
