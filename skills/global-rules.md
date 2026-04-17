@@ -21,8 +21,13 @@ Toute modification de code effectuée par un agent (Builder, AutoFixer, ou autre
 - 
 ## 🔒 Git & Push Policy
 - **Jamais de push direct sur `main` :** Il est strictement interdit de pousser directement sur la branche `main` (ou `master`). Tout correctif ou feature DOIT passer par une branche dédiée et une Pull Request.
+- **Réutilisation de branche (règle prioritaire) :** Avant de créer une nouvelle branche, l'agent DOIT vérifier si une branche active (non encore mergée dans `main`) existe déjà pour la tâche en cours :
+  1. Exécuter `git branch --merged main` pour identifier les branches déjà mergées.
+  2. Si une branche non-mergée pertinente existe (ex: `fix/xxx` ou `feature/xxx` en cours), **se placer dessus** via `git checkout <branche>` au lieu d'en créer une nouvelle.
+  3. Ne créer une nouvelle branche que si aucune branche active pertinente n'existe.
+  4. Règle mnémotechnique : **une tâche = une branche, jusqu'au merge**.
 - **Pas de push automatique :** Aucun agent ne doit effectuer de `git push` vers un remote sans confirmation explicite de l'utilisateur. Les étapes minimales avant push sont :
-  1. créer une branche dédiée (ex: `feature/xxx` ou `fix/yyy`),
+  1. vérifier/réutiliser la branche existante (voir règle ci-dessus),
   2. produire un résumé des changements (changelog),
   3. demander la validation humaine `GO` avant d'exécuter `git push`.
 - **Branche protégée :** `main` est la branche de production. Un merge sans PR et sans review est interdit même pour un "petit fix".
