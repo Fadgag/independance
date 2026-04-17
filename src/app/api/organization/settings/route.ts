@@ -12,6 +12,11 @@ const PatchSettingsSchema = z.object({
   closingTime: z.string().regex(timeRegex, 'Format HH:MM attendu').optional(),
 })
 
+const isMissingColumn = (err: unknown) => {
+  const msg = String((err as Error)?.message ?? '').toLowerCase()
+  return msg.includes('openingtime') || msg.includes('closingtime') || msg.includes('does not exist') || msg.includes('p2022')
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth()
@@ -19,8 +24,16 @@ export async function GET(request: Request) {
     const orgId = session.user?.organizationId
     if (!orgId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { dailyTarget: true, openingTime: true, closingTime: true } })
-    return NextResponse.json({ dailyTarget: org?.dailyTarget ?? 0, openingTime: org?.openingTime ?? '08:00', closingTime: org?.closingTime ?? '20:00' })
+    // Fallback: si les colonnes openingTime/closingTime n'existent pas encore en DB,
+    // retomber sur une requête sans ces champs pour ne pas crasher.
+    try {
+      const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { dailyTarget: true, openingTime: true, closingTime: true } })
+      return NextResponse.json({ dailyTarget: org?.dailyTarget ?? 0, openingTime: org?.openingTime ?? '08:00', closingTime: org?.closingTime ?? '20:00' })
+    } catch (err) {
+      if (!isMissingColumn(err)) throw err
+      const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { dailyTarget: true } })
+      return NextResponse.json({ dailyTarget: org?.dailyTarget ?? 0, openingTime: '08:00', closingTime: '20:00' })
+    }
   } catch (err) {
     return apiErrorResponse(err)
   }
@@ -38,17 +51,22 @@ export async function PATCH(request: Request) {
     const { dailyTarget, openingTime, closingTime } = parsed.data
     const data: Record<string, unknown> = {}
     if (dailyTarget !== undefined) data.dailyTarget = dailyTarget
-    if (openingTime !== undefined) data.openingTime = openingTime
-    if (closingTime !== undefined) data.closingTime = closingTime
 
-    const updated = await prisma.organization.update({ where: { id: orgId }, data })
-    return NextResponse.json({ dailyTarget: updated.dailyTarget, openingTime: updated.openingTime, closingTime: updated.closingTime })
+    // Fallback: ignorer openingTime/closingTime si les colonnes n'existent pas encore en DB
+    try {
+      if (openingTime !== undefined) data.openingTime = openingTime
+      if (closingTime !== undefined) data.closingTime = closingTime
+      const updated = await prisma.organization.update({ where: { id: orgId }, data })
+      return NextResponse.json({ dailyTarget: updated.dailyTarget, openingTime: updated.openingTime ?? '08:00', closingTime: updated.closingTime ?? '20:00' })
+    } catch (err) {
+      if (!isMissingColumn(err)) throw err
+      // Colonnes absentes : sauvegarder uniquement dailyTarget
+      const fallbackData: Record<string, unknown> = {}
+      if (dailyTarget !== undefined) fallbackData.dailyTarget = dailyTarget
+      const updated = await prisma.organization.update({ where: { id: orgId }, data: fallbackData })
+      return NextResponse.json({ dailyTarget: updated.dailyTarget, openingTime: '08:00', closingTime: '20:00' })
+    }
   } catch (err) {
     return apiErrorResponse(err)
   }
 }
-
-
-
-
-
