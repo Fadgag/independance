@@ -56,14 +56,19 @@ export async function PATCH(request: Request) {
     try {
       if (openingTime !== undefined) data.openingTime = openingTime
       if (closingTime !== undefined) data.closingTime = closingTime
-      const updated = await prisma.organization.update({ where: { id: orgId }, data })
+      // Use explicit select so Prisma only asks for known columns on return.
+      // If DB is missing openingTime/closingTime this update will still throw and be
+      // handled by the catch below which will retry with a safer select.
+      const updated = await prisma.organization.update({ where: { id: orgId }, data, select: { dailyTarget: true, openingTime: true, closingTime: true } })
       return NextResponse.json({ dailyTarget: updated.dailyTarget, openingTime: updated.openingTime ?? '08:00', closingTime: updated.closingTime ?? '20:00' })
     } catch (err) {
       if (!isMissingColumn(err)) throw err
       // Colonnes absentes : sauvegarder uniquement dailyTarget
       const fallbackData: Record<string, unknown> = {}
       if (dailyTarget !== undefined) fallbackData.dailyTarget = dailyTarget
-      const updated = await prisma.organization.update({ where: { id: orgId }, data: fallbackData })
+      // Fallback update: only select fields that are guaranteed to exist to avoid
+      // RETURNING columns that the DB may not have yet (causes P2022).
+      const updated = await prisma.organization.update({ where: { id: orgId }, data: fallbackData, select: { dailyTarget: true } })
       return NextResponse.json({ dailyTarget: updated.dailyTarget, openingTime: '08:00', closingTime: '20:00' })
     }
   } catch (err) {
