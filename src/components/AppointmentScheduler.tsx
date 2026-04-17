@@ -34,6 +34,28 @@ export default function AppointmentScheduler() {
     const lastRangeRef = useRef<{ start?: string; end?: string } | null>(null);
     const rangeControllerRef = useRef<AbortController | null>(null);
 
+    // Horaires d'ouverture configurables
+    const [openingTime, setOpeningTime] = useState("08:00")
+    const [closingTime, setClosingTime] = useState("20:00")
+    useEffect(() => {
+        let mounted = true
+        const load = async () => {
+            try {
+                const res = await fetch('/api/organization/settings')
+                if (!res.ok) return
+                const data = await res.json()
+                if (mounted) {
+                    if (typeof data?.openingTime === 'string') setOpeningTime(data.openingTime)
+                    if (typeof data?.closingTime === 'string') setClosingTime(data.closingTime)
+                }
+            } catch { /* garder les valeurs par défaut */ }
+        }
+        load()
+        const handler = () => load()
+        window.addEventListener('organization:settings-updated', handler)
+        return () => { mounted = false; window.removeEventListener('organization:settings-updated', handler) }
+    }, [])
+
     const FullCalendarComponent = FullCalendar
 
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -119,6 +141,7 @@ export default function AppointmentScheduler() {
             <div className="studio-card flex-1 p-6 min-h-0 overflow-hidden bg-white rounded-4xl border border-studio-border shadow-sm">
                 {mounted ? (
                     <FullCalendarComponent
+                        key={`${openingTime}-${closingTime}`}
                         plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
                         initialView="timeGridWeek"
                         height="100%"
@@ -130,8 +153,8 @@ export default function AppointmentScheduler() {
                         selectable={true}
                         editable={true}
                         nowIndicator={true}
-                        slotMinTime="08:00:00"
-                        slotMaxTime="20:00:00"
+slotMinTime={`${openingTime}:00`}
+slotMaxTime={`${closingTime}:00`}
                         allDaySlot={false}
                         headerToolbar={{
                             left: 'prev,next today',

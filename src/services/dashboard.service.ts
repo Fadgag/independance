@@ -3,6 +3,7 @@ import Decimal from 'decimal.js'
 import type { Prisma } from '@prisma/client'
 import type { AppointmentDetailRow, DashboardTotals } from '@/types/dashboard'
 import parseSoldProducts from '@/lib/parseSoldProducts'
+import { logger } from '@/lib/logger'
 import {
   startOfDay,
   endOfDay,
@@ -99,6 +100,7 @@ export async function getDashboardForOrg(orgId: string, periodOrRange: PeriodPar
         type SoldLine = { totalTTC?: number; priceTTC?: number; quantity?: number; totalTax?: number; taxRate?: number }
         const rawSoldValue = rawSold as unknown
         const arr = typeof rawSoldValue === 'string'
+          // RAISON: narrowing typeof === 'string' est effectué juste au-dessus — le cast est sûr.
           ? (JSON.parse(rawSoldValue as string) as SoldLine[])
           : (rawSoldValue as SoldLine[])
         if (Array.isArray(arr)) {
@@ -278,6 +280,14 @@ export async function getDashboardDetails(orgId: string, from: Date, to: Date, f
     total = await prisma.appointment.count({ where: whereWithProductsTotal })
   } catch (e: unknown) {
     const msg = String((e as Error)?.message ?? '').toLowerCase()
+    if (process.env.NODE_ENV !== 'production') {
+      // Log the error and the attempted where clause in development to debug schema differences
+      try {
+        logger.error('[dashboard.service] productsTotal query failed, will fallback to conservative where', { message: (e as Error)?.message, whereWithProductsTotal })
+      } catch {
+        // ignore logging problems
+      }
+    }
     if (msg.includes('productstotal') || msg.includes('products_total') || msg.includes('does not exist')) {
       // retry without referencing productsTotal
       usedProductsTotalVariant = false
@@ -333,15 +343,30 @@ export async function getDashboardDetails(orgId: string, from: Date, to: Date, f
     ? { finalPrice: true, service: { select: { price: true } }, soldProducts: true, productsTotal: true }
     : { finalPrice: true, service: { select: { price: true } }, soldProducts: true }
 
-  const allForTotals = await prisma.appointment.findMany({ where: effectiveWhere, select: selectForTotals })
+  // The database may not have the `productsTotal` column yet. Even if earlier
+  // queries succeeded (e.g. because the WHERE didn't reference the column),
+  // selecting the column here can still fail. Attempt the richer select first
+  // and fall back to a conservative select if the column is absent.
+  type TotalsRow = { finalPrice: number | null; service?: { price?: Prisma.Decimal | null } | null; soldProducts?: unknown; productsTotal?: number | null }
+  let allForTotals: TotalsRow[] = []
+  try {
+    allForTotals = await prisma.appointment.findMany({ where: effectiveWhere, select: selectForTotals })
+  } catch (e: unknown) {
+    const msg = String((e as Error)?.message ?? '').toLowerCase()
+    // If the error mentions productsTotal or missing column, retry without it.
+    if (msg.includes('productstotal') || msg.includes('products_total') || msg.includes('does not exist')) {
+      // Retry with the conservative selection (no productsTotal)
+      const fallbackSelect = { finalPrice: true, service: { select: { price: true } }, soldProducts: true }
+      allForTotals = await prisma.appointment.findMany({ where: effectiveWhere, select: fallbackSelect })
+      usedProductsTotalVariant = false
+    } else {
+      throw e
+    }
+  }
 
-  type TotalsRowBase = { finalPrice: number | null; service?: { price?: Prisma.Decimal | null } | null; soldProducts?: unknown }
-  type TotalsRowWithProducts = TotalsRowBase & { productsTotal?: number | null }
-
-  let computedTotals: DashboardTotals = { totalAmount: 0, totalServicesSum: 0, totalProductsSum: 0 }
+  const computedTotals: DashboardTotals = { totalAmount: 0, totalServicesSum: 0, totalProductsSum: 0 }
   if (usedProductsTotalVariant) {
-    const rowsTyped = allForTotals as TotalsRowWithProducts[]
-    for (const r of rowsTyped) {
+    for (const r of allForTotals) {
       const finalP = r.finalPrice != null ? Number(r.finalPrice) : null
       const prodSum = r.productsTotal != null ? Number(r.productsTotal || 0) : parseSoldProducts(r.soldProducts).sum
       const servicePriceVal = r.service?.price ? Number(r.service.price) : 0
@@ -351,8 +376,7 @@ export async function getDashboardDetails(orgId: string, from: Date, to: Date, f
       computedTotals.totalProductsSum += prodSum
     }
   } else {
-    const rowsTyped = allForTotals as TotalsRowBase[]
-    for (const r of rowsTyped) {
+    for (const r of allForTotals) {
       const finalP = r.finalPrice != null ? Number(r.finalPrice) : null
       const prodSum = parseSoldProducts(r.soldProducts).sum
       const servicePriceVal = r.service?.price ? Number(r.service.price) : 0

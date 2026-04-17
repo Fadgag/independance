@@ -1,0 +1,11 @@
+feat(settings): horaires d'ouverture configurables depuis /settings/schedule
+
+- schema.prisma: ajout openingTime/closingTime sur Organization (defaut 08:00/20:00)
+- migration SQL: ADD COLUMN IF NOT EXISTS openingTime + closingTime (sans execution DB)
+- API /organization/settings: GET + PATCH etendus avec openingTime/closingTime + validation zod regex HH:MM
+- ScheduleSettings.tsx: nouveau composant UI avec time picker + toast + event organization:settings-updated
+- settings/layout.tsx: nouvel onglet Agenda avec icone CalendarDays
+- settings/schedule/page.tsx: page dediee a l'onglet Agenda
+- AppointmentScheduler: slotMinTime/slotMaxTime dynamiques (fetch + ecoute evenement)
+- AppointmentModal: HORAIRE_OUVERTURE/FERMETURE dynamiques (fetch + ecoute evenement)
+

@@ -16,12 +16,14 @@ export async function GET(req: Request) {
   } else {
     const session = await auth()
     if (!session?.user?.organizationId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
+    // RAISON: le guard ci-dessus garantit que session.user.organizationId est défini.
+    // On narrow ici en string pour les appels Prisma en aval.
     orgId = session.user.organizationId as string
   }
 
   const start = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 3600 * 1000)
   const end = to ? new Date(to) : new Date()
-  const data = await getDashboardForOrg(orgId as string, { start, end })
+  const data = await getDashboardForOrg(orgId, { start, end })
   return NextResponse.json(data)
 }
 

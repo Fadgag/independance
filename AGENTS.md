@@ -36,7 +36,7 @@ Dès qu'une commande est invoquée (via `/` ou par texte), exécute le protocole
 - **Cible :** Analyse le rapport le plus récent dans `quality/review_report/`.
 - **Règles :** Priorité Sécurité > DRY > Types. Applique les correctifs directement dans le code source (0% `any`, check `organizationId` Prisma, validation `zod`).
 - **Push & Branching :** L'agent PEUT modifier le code localement, mais NE DOIT PAS pousser automatiquement sur un remote. Avant tout push vers un dépôt distant l'agent doit :
-  1. créer une branche dédiée (ex: `feature/xxx` ou `fix/yyy`),
+  1. **vérifier si une branche active (non mergée dans `main`) existe déjà** pour la tâche (`git branch --merged main`). Si oui, se placer dessus. Sinon, créer une branche dédiée (ex: `feature/xxx` ou `fix/yyy`).
   2. générer un résumé des changements et demander explicitement la confirmation humaine `GO` pour effectuer le `git push`.
   3. ne pas pousser sans l'accord explicite de l'utilisateur.
 

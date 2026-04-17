@@ -178,9 +178,34 @@ export default function AppointmentModal({
     const duration = durationState
     const setDuration = setDurationState
 
-    // --- CONTRAINTES HORAIRES ---
-    const HORAIRE_OUVERTURE = "08:00"
-    const HORAIRE_FERMETURE = "20:00"
+// --- CONTRAINTES HORAIRES (dynamiques, chargées depuis les settings) ---
+const [HORAIRE_OUVERTURE, setHoraireOuverture] = React.useState("08:00")
+const [HORAIRE_FERMETURE, setHoraireFermeture] = React.useState("20:00")
+useEffect(() => {
+    let active = true
+    ;(async () => {
+        try {
+            const res = await fetch('/api/organization/settings')
+            if (!res.ok) return
+            const data = await res.json()
+            if (active) {
+                if (typeof data?.openingTime === 'string') setHoraireOuverture(data.openingTime)
+                if (typeof data?.closingTime === 'string') setHoraireFermeture(data.closingTime)
+            }
+        } catch { /* garder les valeurs par défaut */ }
+    })()
+    const handler = async () => {
+        try {
+            const res = await fetch('/api/organization/settings')
+            if (!res.ok) return
+            const data = await res.json()
+            if (typeof data?.openingTime === 'string') setHoraireOuverture(data.openingTime)
+            if (typeof data?.closingTime === 'string') setHoraireFermeture(data.closingTime)
+        } catch { /* ignore */ }
+    }
+    window.addEventListener('organization:settings-updated', handler)
+    return () => { active = false; window.removeEventListener('organization:settings-updated', handler) }
+}, [])
 
     function isTimeValid(time: string, durationMinutes: number) {
         if (!time) return false
