@@ -141,6 +141,7 @@ export default function AppointmentScheduler() {
             <div className="studio-card flex-1 p-6 min-h-0 overflow-hidden bg-white rounded-4xl border border-studio-border shadow-sm">
                 {mounted ? (
                     <FullCalendarComponent
+                        key={`${openingTime}-${closingTime}`}
                         plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
                         initialView="timeGridWeek"
                         height="100%"
