@@ -12,6 +12,8 @@ model Organization {
   id           String        @id @default(cuid())
   name         String
   dailyTarget  Float         @default(0)
+  openingTime  String        @default("08:00")
+  closingTime  String        @default("20:00")
   services     Service[]
   customers    Customer[]
   staff        Staff[]

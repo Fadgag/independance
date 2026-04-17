@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Landmark, Scissors, User, Package } from "lucide-react";
+import { Landmark, Scissors, User, Package, CalendarDays } from "lucide-react";
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const tabs = [
         { name: "General & CA", href: "/settings", icon: Landmark, disabled: false },
+        { name: "Agenda", href: "/settings/schedule", icon: CalendarDays, disabled: false },
         { name: "Prestations", href: "/settings/services", icon: Scissors, disabled: false },
         { name: "Produits", href: "/settings/products", icon: Package, disabled: false },
         { name: "Mon Compte", href: "/settings/account", icon: User, disabled: false },
