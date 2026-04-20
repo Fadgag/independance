@@ -391,29 +391,30 @@ useEffect(() => {
                     />
                 </div>
 
-                {/* SECTION TEMPS */}
-                <div className="grid grid-cols-3 gap-3 p-4 bg-[#F8FAFC] rounded-2xl border border-[#F1F5F9]">
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1 uppercase">Date</label>
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => { setDate(e.target.value); setCollision(false) }}
-                            className="w-full border-none bg-transparent text-lg font-bold outline-none text-slate-800"
-                        />
-                        {/* Human readable */}
-                        {date && (
-                            <div className="text-[12px] text-slate-600 mt-1">
-                                {(() => {
-                                    try {
-                                        const d = new Date(date)
-                                        const human = format(d, 'EEEE d MMMM yyyy', { locale: frLocale })
-                                        return human.charAt(0).toUpperCase() + human.slice(1)
-                                    } catch { return '' }
-                                })()}
-                            </div>
-                        )}
-                    </div>
+                {/* SECTION DATE (séparée) */}
+                <div className="mb-3 p-4 bg-white rounded-xl border border-slate-200">
+                    <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1 uppercase">Date</label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => { setDate(e.target.value); setCollision(false) }}
+                        className="w-full mt-2 p-2 rounded-xl border border-slate-100 bg-white text-sm text-slate-800"
+                    />
+                    {date && (
+                        <div className="text-[12px] text-slate-600 mt-2">
+                            {(() => {
+                                try {
+                                    const d = new Date(date)
+                                    const human = format(d, 'EEEE d MMMM yyyy', { locale: frLocale })
+                                    return human.charAt(0).toUpperCase() + human.slice(1)
+                                } catch { return '' }
+                            })()}
+                        </div>
+                    )}
+                </div>
+
+                {/* SECTION TEMPS (heure & durée) */}
+                <div className="grid grid-cols-2 gap-3 p-4 bg-[#F8FAFC] rounded-2xl border border-[#F1F5F9]">
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1 uppercase">Début</label>
                         <input
@@ -436,7 +437,7 @@ useEffect(() => {
                             className="w-full border-none bg-transparent text-lg font-bold outline-none text-slate-800"
                         />
                     </div>
-                    <div className="col-span-3 text-[10px] text-slate-400 border-t border-slate-200 pt-2 mt-1">
+                    <div className="col-span-2 text-[10px] text-slate-400 border-t border-slate-200 pt-2 mt-1">
                         Fin prévue à : <strong className="text-slate-600">{getEndTimeLabel()}</strong>
                     </div>
                 </div>
@@ -530,7 +531,8 @@ useEffect(() => {
                         </button>
                     </div>
                 </div>
-            </form>
-        </BaseModal>
-    )
-}
+                </form>
+            </BaseModal>
+        )
+    }
+
