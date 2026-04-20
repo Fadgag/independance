@@ -46,6 +46,7 @@ export default function AppointmentScheduler() {
     const [unavailInitialEnd, setUnavailInitialEnd] = useState<Date | null>(null);
     const [unavailEditingId, setUnavailEditingId] = useState<string | null>(null);
     const [unavailEditingTitle, setUnavailEditingTitle] = useState<string | null>(null);
+    const [unavailEditingGroupId, setUnavailEditingGroupId] = useState<string | null>(null);
 
     // Horaires d'ouverture configurables
     const [openingTime, setOpeningTime] = useState("08:00")
@@ -357,6 +358,7 @@ export default function AppointmentScheduler() {
                                 setUnavailInitialEnd(info.event.end ?? new Date())
                                 setUnavailEditingId(info.event.id)
                                 setUnavailEditingTitle(info.event.title ?? '')
+                                setUnavailEditingGroupId((info.event.extendedProps?.recurrenceGroupId as string | null) ?? null)
                                 setIsUnavailModalOpen(true)
                                 return
                             }
@@ -468,8 +470,12 @@ export default function AppointmentScheduler() {
                 initialEnd={unavailInitialEnd}
                 editingId={unavailEditingId}
                 editingTitle={unavailEditingTitle}
+                editingRecurrenceGroupId={unavailEditingGroupId}
             />
         </div>
     );
 }
+
+
+
 

@@ -4,8 +4,17 @@ import React, { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { format, isValid } from 'date-fns'
 import { fr as frLocale } from 'date-fns/locale'
-import { Trash2, BanIcon } from 'lucide-react'
+import { Trash2, BanIcon, RefreshCw } from 'lucide-react'
 import BaseModal from '@/components/ui/BaseModal'
+
+type Recurrence = 'NONE' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'
+
+const RECURRENCE_LABELS: Record<Recurrence, string> = {
+  NONE: 'Une seule fois',
+  WEEKLY: 'Toutes les semaines',
+  BIWEEKLY: 'Toutes les 2 semaines',
+  MONTHLY: 'Tous les mois',
+}
 
 interface UnavailabilityModalProps {
   isOpen: boolean
@@ -17,16 +26,13 @@ interface UnavailabilityModalProps {
   /** Si fourni, on est en mode édition/suppression */
   editingId?: string | null
   editingTitle?: string | null
+  editingRecurrenceGroupId?: string | null
 }
 
 export default function UnavailabilityModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  initialStart,
-  initialEnd,
-  editingId,
-  editingTitle,
+  isOpen, onClose, onSuccess,
+  initialStart, initialEnd,
+  editingId, editingTitle, editingRecurrenceGroupId,
 }: UnavailabilityModalProps) {
   const [title, setTitle] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -34,6 +40,7 @@ export default function UnavailabilityModal({
   const [dateTo, setDateTo] = useState('')
   const [timeTo, setTimeTo] = useState('')
   const [allDay, setAllDay] = useState(false)
+  const [recurrence, setRecurrence] = useState<Recurrence>('NONE')
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -46,6 +53,7 @@ export default function UnavailabilityModal({
     setDateTo(format(to, 'yyyy-MM-dd'))
     setTimeTo(format(to, 'HH:mm'))
     setAllDay(false)
+    setRecurrence('NONE')
   }, [isOpen, initialStart, initialEnd, editingTitle])
 
   const humanDate = (dateStr: string) => {
@@ -73,53 +81,48 @@ export default function UnavailabilityModal({
     const end = buildISO(dateTo, timeTo)
     if (!start || !end) { toast.error('Dates invalides'); return }
     if (new Date(start) >= new Date(end)) { toast.error('La fin doit être après le début'); return }
-
     setIsSaving(true)
     try {
       const res = await fetch('/api/unavailability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title: title.trim(), start, end, allDay }),
+        body: JSON.stringify({ title: title.trim(), start, end, allDay, recurrence }),
       })
       if (res.ok) {
-        toast.success('Indisponibilité enregistrée')
-        onClose()
-        onSuccess()
+        const data = await res.json()
+        const count = data?.count ?? 1
+        toast.success(count > 1 ? `${count} créneaux bloqués (${RECURRENCE_LABELS[recurrence]})` : 'Créneau bloqué')
+        onClose(); onSuccess()
       } else {
         const data = await res.json().catch(() => ({}))
         toast.error(data?.error ?? 'Erreur lors de l\'enregistrement')
       }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setIsSaving(false)
-    }
+    } catch { toast.error('Erreur réseau') }
+    finally { setIsSaving(false) }
   }
 
-  const handleDelete = async () => {
-    if (!editingId || !confirm('Supprimer cette indisponibilité ?')) return
+  const handleDelete = async (deleteAll: boolean) => {
+    if (!editingId || !confirm(deleteAll ? 'Supprimer toute la série récurrente ?' : 'Supprimer cette occurrence ?')) return
     setIsSaving(true)
     try {
-      const res = await fetch(`/api/unavailability?id=${editingId}`, { method: 'DELETE', credentials: 'include' })
+      const qs = deleteAll ? `?id=${editingId}&deleteAll=1` : `?id=${editingId}`
+      const res = await fetch(`/api/unavailability${qs}`, { method: 'DELETE', credentials: 'include' })
       if (res.ok) {
-        toast.success('Indisponibilité supprimée')
-        onClose()
-        onSuccess()
-      } else {
-        toast.error('Erreur lors de la suppression')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setIsSaving(false)
-    }
+        toast.success(deleteAll ? 'Série supprimée' : 'Occurrence supprimée')
+        onClose(); onSuccess()
+      } else { toast.error('Erreur lors de la suppression') }
+    } catch { toast.error('Erreur réseau') }
+    finally { setIsSaving(false) }
   }
 
   if (!isOpen) return null
 
+  const isEditing = !!editingId
+  const isSeries = !!editingRecurrenceGroupId
+
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title={editingId ? 'Modifier l\'indisponibilité' : 'Bloquer un créneau'}>
+    <BaseModal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Indisponibilité bloquée' : 'Bloquer un créneau'}>
       <form onSubmit={handleSave} className="flex flex-col gap-5">
 
         {/* Motif */}
@@ -130,59 +133,101 @@ export default function UnavailabilityModal({
             placeholder="Ex: Rendez-vous Docteur, Congé, Formation..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 ring-slate-200"
-            autoFocus
+            disabled={isEditing}
+            className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 ring-slate-200 disabled:opacity-60"
+            autoFocus={!isEditing}
           />
         </div>
 
-        {/* Journée entière */}
-        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600">
-          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="w-4 h-4" />
-          Journée entière
-        </label>
+        {!isEditing && (
+          <>
+            {/* Journée entière */}
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600">
+              <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="w-4 h-4" />
+              Journée entière
+            </label>
 
-        {/* Dates */}
-        <div className="grid grid-cols-2 gap-3 p-4 bg-[#F8FAFC] rounded-2xl border border-[#F1F5F9]">
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Du</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full border-none bg-transparent text-base font-bold outline-none text-slate-800 mt-1" />
-            {dateFrom && <div className="text-[11px] text-slate-500 mt-0.5">{humanDate(dateFrom)}</div>}
-            {!allDay && (
-              <input type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)}
-                className="w-full border-none bg-transparent text-sm font-semibold outline-none text-slate-600 mt-1" />
-            )}
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3 p-4 bg-[#F8FAFC] rounded-2xl border border-[#F1F5F9]">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Du</label>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full border-none bg-transparent text-base font-bold outline-none text-slate-800 mt-1" />
+                {dateFrom && <div className="text-[11px] text-slate-500 mt-0.5">{humanDate(dateFrom)}</div>}
+                {!allDay && <input type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)}
+                  className="w-full border-none bg-transparent text-sm font-semibold outline-none text-slate-600 mt-1" />}
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Au</label>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full border-none bg-transparent text-base font-bold outline-none text-slate-800 mt-1" />
+                {dateTo && <div className="text-[11px] text-slate-500 mt-0.5">{humanDate(dateTo)}</div>}
+                {!allDay && <input type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)}
+                  className="w-full border-none bg-transparent text-sm font-semibold outline-none text-slate-600 mt-1" />}
+              </div>
+            </div>
+
+            {/* Récurrence */}
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 flex items-center gap-1.5">
+                <RefreshCw size={11} /> Récurrence
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(RECURRENCE_LABELS) as Recurrence[]).map((r) => (
+                  <button key={r} type="button" onClick={() => setRecurrence(r)}
+                    className={`py-2 px-3 rounded-xl border text-sm font-medium transition-colors text-left
+                      ${recurrence === r
+                        ? 'bg-slate-800 text-white border-slate-800'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
+                    {RECURRENCE_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+              {recurrence !== 'NONE' && (
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Génère des créneaux sur <strong>6 mois</strong> à partir de la date de début.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Si mode lecture (édition existante) */}
+        {isEditing && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+            {isSeries
+              ? '🔁 Cette indisponibilité fait partie d\'une série récurrente.'
+              : '🚫 Indisponibilité ponctuelle.'}
           </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Au</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-              className="w-full border-none bg-transparent text-base font-bold outline-none text-slate-800 mt-1" />
-            {dateTo && <div className="text-[11px] text-slate-500 mt-0.5">{humanDate(dateTo)}</div>}
-            {!allDay && (
-              <input type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)}
-                className="w-full border-none bg-transparent text-sm font-semibold outline-none text-slate-600 mt-1" />
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Actions */}
-        <div className="flex justify-between items-center mt-1">
-          {editingId && (
-            <button type="button" onClick={handleDelete} disabled={isSaving}
-              className="text-red-500 text-[11px] font-bold flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-              <Trash2 size={13} /> SUPPRIMER
-            </button>
+        <div className="flex justify-between items-center mt-1 flex-wrap gap-2">
+          {isEditing && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => handleDelete(false)} disabled={isSaving}
+                className="text-red-500 text-[11px] font-bold flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                <Trash2 size={13} /> Supprimer cette occurrence
+              </button>
+              {isSeries && (
+                <button type="button" onClick={() => handleDelete(true)} disabled={isSaving}
+                  className="text-red-600 text-[11px] font-bold flex items-center gap-1.5 hover:opacity-80 transition-opacity border-l border-red-200 pl-2">
+                  <Trash2 size={13} /> Toute la série
+                </button>
+              )}
+            </div>
           )}
           <div className="flex gap-2 ml-auto">
             <button type="button" onClick={onClose} className="px-5 py-2 text-slate-400 font-bold text-sm">ANNULER</button>
-            <button type="submit" disabled={isFormInvalid || isSaving}
-              className="px-6 py-2.5 bg-slate-800 text-white rounded-full font-bold text-sm flex items-center gap-2 shadow disabled:opacity-50 disabled:cursor-not-allowed">
-              <BanIcon size={14} /> {isSaving ? '...' : 'BLOQUER'}
-            </button>
+            {!isEditing && (
+              <button type="submit" disabled={isFormInvalid || isSaving}
+                className="px-6 py-2.5 bg-slate-800 text-white rounded-full font-bold text-sm flex items-center gap-2 shadow disabled:opacity-50 disabled:cursor-not-allowed">
+                <BanIcon size={14} /> {isSaving ? '...' : 'BLOQUER'}
+              </button>
+            )}
           </div>
         </div>
       </form>
     </BaseModal>
   )
 }
-

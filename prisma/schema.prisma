@@ -31,7 +31,9 @@ model Unavailability {
   title          String
   start          DateTime
   end            DateTime
-  allDay         Boolean      @default(false)
+  allDay             Boolean      @default(false)
+  recurrence         String       @default("NONE") // NONE | WEEKLY | BIWEEKLY | MONTHLY
+  recurrenceGroupId  String?      // Groups all instances of a recurring series
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   createdAt      DateTime     @default(now())
