@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { isAbortError } from '@/lib/utils'
 import { format, addMinutes, isValid, parse, differenceInMinutes } from "date-fns"
+import { fr as frLocale } from 'date-fns/locale'
 import { Trash2, AlertTriangle, Zap } from "lucide-react"
 import BaseModal from "@/components/ui/BaseModal"
 import { CustomerPicker } from "./CustomerPicker"
@@ -73,6 +74,7 @@ export default function AppointmentModal({
     const [serviceIdState, setServiceIdState] = useState("")
     const [noteState, setNoteState] = useState("")
     const [startTimeState, setStartTimeState] = useState("")
+    const [dateState, setDateState] = useState<string>("")
     const [durationState, setDurationState] = useState<number>(30)
     // --- Forfaits ---
     // Shape returned by API: includes sessionsRemaining and a nested package relation
@@ -90,7 +92,7 @@ export default function AppointmentModal({
         if (!isOpen) return
 
         // compute initial values from initialData if editing
-            if (initialData) {
+                if (initialData) {
             const start = initialData.start ? new Date(initialData.start) : null
             const d = initialData.duration || initialData.extendedProps?.duration || 30
             const startStr = start && isValid(start) ? format(start, "HH:mm") : ""
@@ -104,6 +106,9 @@ export default function AppointmentModal({
             setServiceIdState(svcId)
             setNoteState(noteVal)
             setStartTimeState(startStr)
+            // set date part
+            const dateStr = start && isValid(start) ? format(start, 'yyyy-MM-dd') : ''
+            setDateState(dateStr)
             setDurationState(Number(d))
             // initialize package selection if present
             const cpId = initialData.extendedProps?.customerPackageId || null
@@ -128,6 +133,9 @@ export default function AppointmentModal({
             setServiceIdState("")
             setNoteState("")
             setStartTimeState(startStr)
+            // date part from selection
+            const dateStr = isValid(start) ? format(start, 'yyyy-MM-dd') : ''
+            setDateState(dateStr)
             setDurationState(diff > 0 ? diff : 30)
             return
         }
@@ -137,6 +145,8 @@ export default function AppointmentModal({
         setServiceIdState("")
         setNoteState("")
         setStartTimeState("")
+        // default date = today
+        setDateState(format(new Date(), 'yyyy-MM-dd'))
         setDurationState(30)
     }, [isOpen, initialData, selectedRange, customers])
 
@@ -177,6 +187,8 @@ export default function AppointmentModal({
     const setStartTime = setStartTimeState
     const duration = durationState
     const setDuration = setDurationState
+    const date = dateState
+    const setDate = setDateState
 
 // --- CONTRAINTES HORAIRES (dynamiques, chargées depuis les settings) ---
 const [HORAIRE_OUVERTURE, setHoraireOuverture] = React.useState("08:00")
@@ -223,7 +235,7 @@ useEffect(() => {
     const isTimeOutOfBounds = !isTimeValid(startTime, duration)
 
     // Validation du formulaire (champs obligatoires + horaires + durée)
-    const isFormInvalid = !selectedCustomer || !serviceId || isTimeOutOfBounds || (Number(duration) <= 0)
+    const isFormInvalid = !selectedCustomer || !serviceId || !date || isTimeOutOfBounds || (Number(duration) <= 0)
 
     /* reset collision/force flags when modal opens (intentionally setting state in effect) */
     useEffect(() => {
@@ -266,7 +278,12 @@ useEffect(() => {
         if (isFormInvalid) return
 
         setIsSaving(true)
-        const baseDate = new Date(initialData?.start || selectedRange?.start || new Date())
+        // Build base date from (in order): initialData.start, selectedRange.start, dateState, today
+        let baseDate: Date
+        if (initialData?.start) baseDate = new Date(initialData.start)
+        else if (selectedRange && (selectedRange as any).start) baseDate = new Date((selectedRange as any).start)
+        else if (date) baseDate = new Date(date)
+        else baseDate = new Date()
         const [h, m] = startTime.split(':').map(Number)
         baseDate.setHours(h, m, 0, 0)
 
@@ -374,7 +391,29 @@ useEffect(() => {
                     />
                 </div>
 
-                {/* SECTION TEMPS */}
+                {/* SECTION DATE (séparée) */}
+                <div className="mb-3 p-4 bg-white rounded-xl border border-slate-200">
+                    <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1 uppercase">Date</label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => { setDate(e.target.value); setCollision(false) }}
+                        className="w-full mt-2 p-2 rounded-xl border border-slate-100 bg-white text-sm text-slate-800"
+                    />
+                    {date && (
+                        <div className="text-[12px] text-slate-600 mt-2">
+                            {(() => {
+                                try {
+                                    const d = new Date(date)
+                                    const human = format(d, 'EEEE d MMMM yyyy', { locale: frLocale })
+                                    return human.charAt(0).toUpperCase() + human.slice(1)
+                                } catch { return '' }
+                            })()}
+                        </div>
+                    )}
+                </div>
+
+                {/* SECTION TEMPS (heure & durée) */}
                 <div className="grid grid-cols-2 gap-3 p-4 bg-[#F8FAFC] rounded-2xl border border-[#F1F5F9]">
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1 uppercase">Début</label>
@@ -492,7 +531,8 @@ useEffect(() => {
                         </button>
                     </div>
                 </div>
-            </form>
-        </BaseModal>
-    )
-}
+                </form>
+            </BaseModal>
+        )
+    }
+
