@@ -57,3 +57,12 @@ export function useOrganizationSettings(): OrgSettings {
   return settings
 }
 
+/**
+ * Réinitialise le cache module-level.
+ * À utiliser dans les tests (vi.resetModules() ou appel direct entre les cas).
+ * @internal
+ */
+export function resetOrganizationSettingsCache(): void {
+  cache = null
+  inflightPromise = null
+}

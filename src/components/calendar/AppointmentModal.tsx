@@ -12,6 +12,7 @@ import { CustomerPicker } from "./CustomerPicker"
 import type { Customer as CustomerType, Service as ServiceType, Staff as StaffType, CustomerPackageSummary } from '@/types/models'
 import type { DateSelectArg } from '@fullcalendar/core'
 import { z } from 'zod'
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings'
 
 const CustomerPackageResponseSchema = z.array(z.object({
   id: z.string(),
@@ -198,34 +199,8 @@ export default function AppointmentModal({
     const date = dateState
     const setDate = setDateState
 
-// --- CONTRAINTES HORAIRES (dynamiques, chargées depuis les settings) ---
-const [HORAIRE_OUVERTURE, setHoraireOuverture] = React.useState("08:00")
-const [HORAIRE_FERMETURE, setHoraireFermeture] = React.useState("20:00")
-useEffect(() => {
-    let active = true
-    ;(async () => {
-        try {
-            const res = await fetch('/api/organization/settings')
-            if (!res.ok) return
-            const data = await res.json()
-            if (active) {
-                if (typeof data?.openingTime === 'string') setHoraireOuverture(data.openingTime)
-                if (typeof data?.closingTime === 'string') setHoraireFermeture(data.closingTime)
-            }
-        } catch { /* garder les valeurs par défaut */ }
-    })()
-    const handler = async () => {
-        try {
-            const res = await fetch('/api/organization/settings')
-            if (!res.ok) return
-            const data = await res.json()
-            if (typeof data?.openingTime === 'string') setHoraireOuverture(data.openingTime)
-            if (typeof data?.closingTime === 'string') setHoraireFermeture(data.closingTime)
-        } catch { /* ignore */ }
-    }
-    window.addEventListener('organization:settings-updated', handler)
-    return () => { active = false; window.removeEventListener('organization:settings-updated', handler) }
-}, [])
+// --- CONTRAINTES HORAIRES (dynamiques, chargées depuis les settings — hook partagé avec cache) ---
+const { openingTime: HORAIRE_OUVERTURE, closingTime: HORAIRE_FERMETURE } = useOrganizationSettings()
 
     function isTimeValid(time: string, durationMinutes: number) {
         if (!time) return false

@@ -270,6 +270,7 @@ export async function getDashboardDetails(orgId: string, from: Date, to: Date, f
 
   const items: DashboardDetailItem[] = []
   for (const aRaw of rows) {
+    // RAISON: `rows` est typé par Prisma sans `soldProductsJson` (colonne optionnelle v2) — cast nécessaire pour accéder au champ sans any
     const a = aRaw as AppointmentRow
     const clientName = a.customer ? `${a.customer.firstName} ${a.customer.lastName}`.trim() : '—'
     const serviceName = a.service?.name ?? '—'

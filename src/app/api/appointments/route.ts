@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import apiErrorResponse from '@/lib/api'
+import { z } from 'zod'
 import { CreateAppointmentSchema, UpdateAppointmentSchema } from '@/schemas/appointments'
 import { auth } from "@/auth"
 import { parseJsonField } from '@/lib/parseAppointmentJson'
@@ -15,8 +16,16 @@ export async function GET(request: Request) {
         const organizationId = session.user.organizationId!
 
         const url = new URL(request.url)
-        const startParam = url.searchParams.get('start')
-        const endParam = url.searchParams.get('end')
+        const GetQuerySchema = z.object({
+            start: z.string().datetime().optional(),
+            end: z.string().datetime().optional(),
+        })
+        const queryParsed = GetQuerySchema.safeParse({
+            start: url.searchParams.get('start') ?? undefined,
+            end: url.searchParams.get('end') ?? undefined,
+        })
+        if (!queryParsed.success) return NextResponse.json({ error: 'Invalid params', details: queryParsed.error.format() }, { status: 400 })
+        const { start: startParam, end: endParam } = queryParsed.data
 
         const where: { organizationId: string; startTime?: { gte?: Date; lte?: Date } } = {
             organizationId
@@ -225,6 +234,11 @@ export async function DELETE(request: Request) {
         if (!session?.user?.organizationId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const url = new URL(request.url)
+        const DeleteBodySchema = z.object({
+            id: z.string().cuid().optional(),
+            from: z.string().optional(),
+            confirm: z.boolean().optional(),
+        })
         // Support both query params and JSON body for delete requests (some clients send body)
         let id = url.searchParams.get('id')
         let from = url.searchParams.get('from') // e.g. 'checkout'
@@ -232,11 +246,12 @@ export async function DELETE(request: Request) {
 
         // Essaie de parser le body si présent (ex: appel POST/DELETE depuis frontend avec JSON)
         try {
-            const body = await request.json()
-            if (body) {
-                if (body.id) id = body.id
-                if (body.from) from = body.from
-                if (body.confirm !== undefined) confirm = Boolean(body.confirm)
+            const rawBody = await request.json()
+            const body = DeleteBodySchema.safeParse(rawBody)
+            if (body.success) {
+                if (body.data.id) id = body.data.id
+                if (body.data.from) from = body.data.from
+                if (body.data.confirm !== undefined) confirm = Boolean(body.data.confirm)
             }
         } catch {
             // pas de body -> ok, on continue avec les query params

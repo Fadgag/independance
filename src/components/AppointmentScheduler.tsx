@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { isAbortError } from '@/lib/utils'
 import type { Customer, Service, Staff, InitialAppointmentData } from '@/types/models'
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings'
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -48,27 +49,8 @@ export default function AppointmentScheduler() {
     const [unavailEditingTitle, setUnavailEditingTitle] = useState<string | null>(null);
     const [unavailEditingGroupId, setUnavailEditingGroupId] = useState<string | null>(null);
 
-    // Horaires d'ouverture configurables
-    const [openingTime, setOpeningTime] = useState("08:00")
-    const [closingTime, setClosingTime] = useState("20:00")
-    useEffect(() => {
-        let mounted = true
-        const load = async () => {
-            try {
-                const res = await fetch('/api/organization/settings')
-                if (!res.ok) return
-                const data = await res.json()
-                if (mounted) {
-                    if (typeof data?.openingTime === 'string') setOpeningTime(data.openingTime)
-                    if (typeof data?.closingTime === 'string') setClosingTime(data.closingTime)
-                }
-            } catch { /* garder les valeurs par défaut */ }
-        }
-        load()
-        const handler = () => load()
-        window.addEventListener('organization:settings-updated', handler)
-        return () => { mounted = false; window.removeEventListener('organization:settings-updated', handler) }
-    }, [])
+    // Horaires d'ouverture configurables — centralisés via le hook (cache partagé)
+    const { openingTime, closingTime } = useOrganizationSettings()
 
     const FullCalendarComponent = FullCalendar
 

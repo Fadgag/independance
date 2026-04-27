@@ -23,23 +23,25 @@ export async function GET(request: Request) {
     const organizationId = session.user.organizationId!
 
     const url = new URL(request.url)
-    const startParam = url.searchParams.get('start')
-    const endParam = url.searchParams.get('end')
+    const QuerySchema = z.object({
+      start: z.string().datetime().optional(),
+      end: z.string().datetime().optional(),
+    })
+    const queryParsed = QuerySchema.safeParse({
+      start: url.searchParams.get('start') ?? undefined,
+      end: url.searchParams.get('end') ?? undefined,
+    })
+    if (!queryParsed.success) return NextResponse.json({ error: 'Invalid params', details: queryParsed.error.format() }, { status: 400 })
+    const { start: startParam, end: endParam } = queryParsed.data
 
     const where: UnavailabilityWhereClause = { organizationId }
     if (startParam && endParam) {
-      const rangeStart = new Date(startParam)
-      const rangeEnd = new Date(endParam)
-      if (!isNaN(rangeStart.getTime()) && !isNaN(rangeEnd.getTime())) {
-        // Overlap: event.start < range_end AND event.end > range_start
-        where.AND = [{ start: { lt: rangeEnd } }, { end: { gt: rangeStart } }]
-      }
+      // Overlap: event.start < range_end AND event.end > range_start
+      where.AND = [{ start: { lt: new Date(endParam) } }, { end: { gt: new Date(startParam) } }]
     } else if (startParam) {
-      const d = new Date(startParam)
-      if (!isNaN(d.getTime())) where.AND = [{ end: { gt: d } }]
+      where.AND = [{ end: { gt: new Date(startParam) } }]
     } else if (endParam) {
-      const d = new Date(endParam)
-      if (!isNaN(d.getTime())) where.AND = [{ start: { lt: d } }]
+      where.AND = [{ start: { lt: new Date(endParam) } }]
     }
 
     const unavailabilities = await prisma.unavailability.findMany({
@@ -127,7 +129,8 @@ export async function DELETE(request: Request) {
     if (deleteAll && existing.recurrenceGroupId) {
       await prisma.unavailability.deleteMany({ where: { recurrenceGroupId: existing.recurrenceGroupId, organizationId } })
     } else {
-      await prisma.unavailability.delete({ where: { id } })
+      // RAISON: deleteMany avec organizationId garantit l'isolation même si findFirst était bypassé (Anti-IDOR)
+      await prisma.unavailability.deleteMany({ where: { id, organizationId } })
     }
     return NextResponse.json({ success: true })
   } catch (err) {
