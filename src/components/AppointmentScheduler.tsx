@@ -52,7 +52,6 @@ export default function AppointmentScheduler() {
     // Horaires d'ouverture configurables — centralisés via le hook (cache partagé)
     const { openingTime, closingTime } = useOrganizationSettings()
 
-    const FullCalendarComponent = FullCalendar
 
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [services, setServices] = useState<Service[]>([]);
@@ -211,7 +210,7 @@ export default function AppointmentScheduler() {
                                 rangeControllerRef.current = c
                                 fetchAppointments(info.startStr, info.endStr, c.signal)
                                 fetchUnavailabilities(info.startStr, info.endStr)
-                            } catch (e) { /* defensive */ fetchAppointments(info.startStr, info.endStr) }
+                            } catch { /* defensive */ fetchAppointments(info.startStr, info.endStr) }
                         }}
 
                         // --- 1. RENDU DES CASES ---

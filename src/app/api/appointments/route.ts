@@ -259,6 +259,11 @@ export async function DELETE(request: Request) {
 
         if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
+        // Valider le format CUID (cohérent avec le body path qui passe par DeleteBodySchema)
+        const idValidation = z.string().cuid().safeParse(id)
+        if (!idValidation.success) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+        id = idValidation.data
+
         const existing = await prisma.appointment.findFirst({
             where: { id, organizationId: session.user.organizationId }
         })
