@@ -48,6 +48,9 @@ export interface UseAppointmentFormReturn {
   selectedCustomerPackageId: string | null
   setSelectedCustomerPackageId: (v: string | null) => void
   isSaving: boolean
+  isNoteSaving: boolean
+  noteSavedAt: number | null
+  noteDirty: boolean
   collision: boolean
   setCollision: (v: boolean) => void
   confirmDeleteOpen: boolean
@@ -63,6 +66,7 @@ export interface UseAppointmentFormReturn {
   handleSave: (e: React.FormEvent) => Promise<void>
   handleDelete: () => void
   handleConfirmDelete: () => Promise<void>
+  handleSaveNote: () => Promise<boolean>
 }
 
 interface UseAppointmentFormProps {
@@ -80,12 +84,16 @@ export function useAppointmentForm({
   isOpen, initialData, selectedRange, customers, services, onCloseAction, onSuccess,
 }: UseAppointmentFormProps): UseAppointmentFormReturn {
   const [isSaving, setIsSaving] = useState(false)
+  const [isNoteSaving, setIsNoteSaving] = useState(false)
+  const [noteSavedAt, setNoteSavedAt] = useState<number | null>(null)
+  const [noteDirty, setNoteDirty] = useState(false)
   const [collision, setCollision] = useState(false)
   const [forceSave, setForceSave] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerType | null>(null)
   const [serviceId, setServiceId] = useState('')
   const [note, setNote] = useState('')
+  const setNoteWrapper = (v: string) => { setNote(v); setNoteDirty(true) }
   const [startTime, setStartTime] = useState('')
   const [date, setDate] = useState('')
   const [duration, setDuration] = useState(30)
@@ -104,7 +112,9 @@ export function useAppointmentForm({
       const d = initialData.duration || initialData.extendedProps?.duration || 30
       setSelectedCustomer(customers.find((c) => c.id === String(initialData.customerId ?? initialData.extendedProps?.customerId ?? '')) || null)
       setServiceId(String(initialData.serviceId ?? initialData.extendedProps?.serviceId ?? ''))
-      setNote(String(initialData.note ?? initialData.extendedProps?.note ?? ''))
+      const initialNote = String(initialData.note ?? initialData.extendedProps?.note ?? '')
+      setNote(initialNote)
+      setNoteDirty(false)
       setStartTime(start && isValid(start) ? format(start, 'HH:mm') : '')
       setDate(start && isValid(start) ? format(start, 'yyyy-MM-dd') : '')
       setDuration(Number(d))
@@ -159,6 +169,34 @@ export function useAppointmentForm({
     if (found) setDuration(Number(found.durationMinutes || 30))
   }
 
+  // Save note only (used for autosave / explicit note save)
+  const handleSaveNote = async (): Promise<boolean> => {
+    // Only applicable for existing appointments
+    if (!initialData?.id) return false
+    if (!noteDirty) return true
+    setIsNoteSaving(true)
+    try {
+      const res = await fetch('/api/appointments', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ id: initialData.id, note })
+      })
+      if (res.ok) {
+        setNoteSavedAt(Date.now())
+        setNoteDirty(false)
+        setIsNoteSaving(false)
+        return true
+      }
+      // Non ok -> log payload for debugging
+      try { const payload = await res.json(); import('@/lib/clientLogger').then(({ clientError }) => clientError('Save note failed', { status: res.status, payload })) } catch {}
+      setIsNoteSaving(false)
+      return false
+    } catch (err) {
+      import('@/lib/clientLogger').then(({ clientError }) => clientError('Save note error', err))
+      setIsNoteSaving(false)
+      return false
+    }
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isFormInvalid || !selectedCustomer) return
@@ -180,7 +218,10 @@ export function useAppointmentForm({
           ...(usePackage && selectedCustomerPackageId ? { customerPackageId: selectedCustomerPackageId } : {}),
         }),
       })
-      if (res.ok) {
+        if (res.ok) {
+          // after a full save, consider note persisted
+          setNoteDirty(false)
+          setNoteSavedAt(Date.now())
         try { onCloseAction(); await onSuccess() }
         catch (err) {
           import('@/lib/clientLogger').then(({ clientError }) => clientError('onSuccess failed', err))
@@ -226,12 +267,13 @@ export function useAppointmentForm({
   }
 
   return {
-    selectedCustomer, setSelectedCustomer, serviceId, setServiceId, note, setNote,
+    selectedCustomer, setSelectedCustomer, serviceId, setServiceId, note, setNote: setNoteWrapper,
+    noteSavedAt, noteDirty,
     startTime, setStartTime, duration, setDuration, date, setDate,
     customerPackages, usePackage, setUsePackage, selectedCustomerPackageId, setSelectedCustomerPackageId,
-    isSaving, collision, setCollision, confirmDeleteOpen, setConfirmDeleteOpen,
+    isSaving, isNoteSaving, collision, setCollision, confirmDeleteOpen, setConfirmDeleteOpen,
     HORAIRE_OUVERTURE, HORAIRE_FERMETURE, isTimeOutOfBounds, isFormInvalid,
-    getEndTimeLabel, handleServiceChange, handleSave, handleDelete, handleConfirmDelete,
+    getEndTimeLabel, handleServiceChange, handleSave, handleDelete, handleConfirmDelete, handleSaveNote,
   }
 }
 

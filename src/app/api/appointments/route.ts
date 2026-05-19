@@ -210,19 +210,39 @@ export async function PUT(request: Request) {
 
         // Use updateMany to ensure organizationId scope in a single atomic DB operation,
         // then fetch the updated record for the response.
-        const res = await prisma.appointment.updateMany({
-            where: { id, organizationId: session.user.organizationId },
-            data: {
-                startTime: newStart,
-                endTime: newEnd,
-                ...(duration !== undefined && { duration: Number(duration) }),
-                ...(serviceId && { serviceId }),
-                ...(customerId && { customerId }),
-                ...(note !== undefined && { note: note || null }),
+        const TIMEOUT_MS = Number(process.env.DB_OPERATION_TIMEOUT_MS || 5000)
+
+        const withTimeout = async <T>(p: Promise<T>, ms = TIMEOUT_MS) => {
+            let timer: NodeJS.Timeout
+            const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('DB_TIMEOUT')), ms) })
+            try {
+                return await Promise.race([p, timeout]) as T
+            } finally { clearTimeout(timer!) }
+        }
+
+        let res
+        try {
+            res = await withTimeout(prisma.appointment.updateMany({
+                where: { id, organizationId: session.user.organizationId },
+                data: {
+                    startTime: newStart,
+                    endTime: newEnd,
+                    ...(duration !== undefined && { duration: Number(duration) }),
+                    ...(serviceId && { serviceId }),
+                    ...(customerId && { customerId }),
+                    ...(note !== undefined && { note: note || null }),
+                }
+            }))
+        } catch (err) {
+            // Distinguish timeout vs Prisma connection errors
+            const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as any).message) : 'Unknown DB error'
+            if (msg === 'DB_TIMEOUT' || (err as any)?.code === 'P1001') {
+                return NextResponse.json({ error: 'Database timeout or unavailable' }, { status: 504 })
             }
-        })
-        if (res.count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-        const updated = await prisma.appointment.findFirst({ where: { id, organizationId: session.user.organizationId }, select: { id: true, startTime: true, endTime: true, duration: true, serviceId: true, customerId: true, note: true } })
+            throw err
+        }
+        if ((res as any).count === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        const updated = await withTimeout(prisma.appointment.findFirst({ where: { id, organizationId: session.user.organizationId }, select: { id: true, startTime: true, endTime: true, duration: true, serviceId: true, customerId: true, note: true } }))
         return NextResponse.json(updated)
     } catch (err) {
         return apiErrorResponse(err)
